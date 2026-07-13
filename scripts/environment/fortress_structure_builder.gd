@@ -1,66 +1,64 @@
 extends Node3D
 
 ## Structural pass (environment only, no gameplay): a Helm's-Deep-style fortress
-## from MCSTEEG modules on the Terrain3D heightmap.
-##  - a level plateau is carved at the mountain foot (blended rim) and the render
-##    maps are refreshed so the terrain actually flattens;
-##  - a curved battlemented curtain wall (~6 m) sweeps the D arc, every column
-##    seated to the local ground (no floating);
-##  - round towers (rings of wall modules) with an inner platform at wall-walk
-##    height, entered by walking off the wall;
-##  - two stone staircases climb from the courtyard onto the wall-walk;
-##  - a gate at the arc apex faces the plain; the mountain is the rear.
+## built as SOLID stone geometry (no see-through) on a sculpted Terrain3D.
+##  - the terrain is sculpted into a horseshoe: a flat plateau ringed by an
+##    enclosing mountain ridge on the rear + both sides, open only at the front;
+##  - a solid, thick curved curtain wall closes the open front, with an outer
+##    merlon parapet and a stair that runs ALONG the wall up to the walk;
+##  - small solid round drum towers punctuate the wall;
+##  - a gate opening sits at the front apex.
 ## Controls: mouse look | WASD | Q/E | Shift | R reset | Esc release/quit.
 
 const HEIGHT_EXR := "res://assets/raw/terrain/motion_forge/Height_Map.exr"
-const GLB := "res://assets/raw/mcsteeg_castle/Castles_and_Forts.glb"
 const PREVIEW_RES := 1024
 const HEIGHT_SCALE := 900.0
 
-const COURSE := 2.0
-const MODULE := 4.0
-const TOWER_SEG := 2.0
-const WALL_H := 6.0
-const TOWER_H := 8.5
-
 const CX := 330.0
 const CZ := 500.0
-const R_FLAT := 52.0
-const R_BLEND := 16.0
-const ARC_R := 42.0
-const ARC_A0 := PI * 0.5
-const ARC_A1 := PI * 1.5
-const TOWER_R := 5.5
+const R_FLAT := 46.0
+const R_BLEND := 14.0
+const WALL_R := 44.0
+const OPEN_HALF := 1.20        # half-angle of the open front (rad), centred on west (PI)
+const WALL_H := 6.0            # walk surface above plateau
+const WALL_THICK := 2.6
+const MERLON_H := 1.3
+const TOWER_R := 3.2           # smaller towers
+const TOWER_H := 7.5
+const GATE_HALF := 0.055       # gate opening half-angle
+const RIDGE_MAX := 58.0
+const RIDGE_SLOPE := 1.35
+const RMAX := 104.0
 
 var _terrain: Node
 var _cam: Camera3D
-var _meshes := {}
 var _base := 0.0
-var _walk_y := 0.0
 var _stone: StandardMaterial3D
+var _rock: StandardMaterial3D
 
 var _yaw := -PI / 2.0
-var _pitch := 0.03
+var _pitch := 0.05
 var _spawn := Vector3(250, 20, 500)
 
 func _ready() -> void:
 	_stone = StandardMaterial3D.new()
-	_stone.albedo_color = Color(0.5, 0.5, 0.52)
-	_stone.roughness = 0.95
+	_stone.albedo_color = Color(0.44, 0.46, 0.43)
+	_stone.roughness = 0.92
+	_rock = StandardMaterial3D.new()
+	_rock.albedo_color = Color(0.4, 0.4, 0.42)
+	_rock.roughness = 1.0
 	_terrain = $Terrain
 	_cam = $FlyCamera
 	_terrain.call("set_camera", _cam)
 	await get_tree().process_frame
 	await get_tree().process_frame
 	_import_terrain()
-	_flatten_plateau()
-	_walk_y = _base + WALL_H - 1.0
-	_load_modules()
-	_build_walls()
+	_sculpt_terrain()
+	_build_wall()
 	_build_towers()
-	_build_stairs()
+	_build_stair_along_wall(PI - 0.35)
 	_place_capsule()
-	_spawn = Vector3(CX - ARC_R - 30.0, _base + 6.0, CZ)
+	_spawn = Vector3(CX + (WALL_R + 26.0) * cos(PI), _base + 5.0, CZ)
 	_cam.global_position = _spawn
 	_apply_look()
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
@@ -81,129 +79,109 @@ func _h(x: float, z: float) -> float:
 	var v: float = _terrain.get("data").get_height(Vector3(x, 0.0, z))
 	return 0.0 if is_nan(v) else v
 
-func _flatten_plateau() -> void:
+func _ang_to_west(dx: float, dz: float) -> float:
+	# absolute angular distance of direction (dx,dz) from west (-X)
+	var a := atan2(dz, dx)
+	var d: float = abs(a - PI)
+	if d > PI:
+		d = TAU - d
+	return d
+
+func _sculpt_terrain() -> void:
 	var data = _terrain.get("data")
 	_base = _h(CX - 12.0, CZ)
-	var rr: int = int(R_FLAT + R_BLEND)
+	var rr: int = int(RMAX)
 	for dz in range(-rr, rr + 1):
 		for dx in range(-rr, rr + 1):
 			var d := sqrt(float(dx * dx + dz * dz))
-			if d > R_FLAT + R_BLEND:
+			if d > RMAX:
 				continue
-			var target := _base
-			if d > R_FLAT:
-				var t: float = smoothstep(0.0, 1.0, (d - R_FLAT) / R_BLEND)
-				target = lerp(_base, _h(CX + dx, CZ + dz), t)
-			data.set_height(Vector3(CX + dx, 0.0, CZ + dz), target)
+			var x := CX + dx
+			var z := CZ + dz
+			var target: float
+			if d <= R_FLAT:
+				target = _base
+			else:
+				var orig := _h(x, z)
+				var rim: float = clampf((d - R_FLAT) / R_BLEND, 0.0, 1.0)
+				var hb: float = lerp(_base, orig, rim)
+				var ad := _ang_to_west(float(dx), float(dz))
+				var rf: float = clampf((ad - OPEN_HALF) / 0.45, 0.0, 1.0)
+				var rise: float = min(RIDGE_MAX, maxf(0.0, d - R_FLAT) * RIDGE_SLOPE)
+				target = hb + rf * rise
+			data.set_height(Vector3(x, 0.0, z), target)
 	data.calc_height_range(true)
-	data.update_maps()          # refresh render + collision maps (the fix)
+	data.update_maps()
 
-func _load_modules() -> void:
-	var glb: Node = load(GLB).instantiate()
-	var stack: Array[Node] = [glb]
-	while not stack.is_empty():
-		var n: Node = stack.pop_back()
-		if n is MeshInstance3D and (n as MeshInstance3D).mesh != null:
-			_meshes[String(n.name)] = (n as MeshInstance3D).mesh
-		for c in n.get_children():
-			stack.append(c)
-	glb.queue_free()
+func _solid(center: Vector3, size: Vector3, yaw: float, mat: StandardMaterial3D) -> void:
+	var box := BoxMesh.new()
+	box.size = size
+	var mi := MeshInstance3D.new()
+	mi.mesh = box
+	mi.material_override = mat
+	mi.transform = Transform3D(Basis(Vector3.UP, yaw), center)
+	add_child(mi)
 
-func _emit(mesh_name: String, transforms: Array) -> void:
-	if not _meshes.has(mesh_name) or transforms.is_empty():
-		return
-	var mm := MultiMesh.new()
-	mm.transform_format = MultiMesh.TRANSFORM_3D
-	mm.mesh = _meshes[mesh_name]
-	mm.instance_count = transforms.size()
-	for i in transforms.size():
-		mm.set_instance_transform(i, transforms[i])
-	var mmi := MultiMeshInstance3D.new()
-	mmi.multimesh = mm
-	mmi.name = "MM_" + mesh_name + str(get_child_count())
-	add_child(mmi)
-
-# Column seated to LOCAL ground (never floats); level battlement top.
-func _column(px: float, pz: float, yaw: float, top_y: float, plain: Array, walk: Array) -> void:
-	var b := Basis(Vector3.UP, yaw)
-	walk.append(Transform3D(b, Vector3(px, top_y - COURSE, pz)))
-	var ground := _h(px, pz)
-	var y := top_y - 2.0 * COURSE
-	while y > ground - 2.5:
-		plain.append(Transform3D(b, Vector3(px, y, pz)))
-		y -= COURSE
-
-func _build_walls() -> void:
-	var top := _base + WALL_H
-	var plain: Array = []
-	var walk: Array = []
-	var n_seg := int(round(ARC_R * absf(ARC_A1 - ARC_A0) / MODULE))
-	var gate_i := n_seg / 2
-	for i in n_seg:
-		if i == gate_i:
-			_build_gate(i, n_seg, top)
-			continue
-		var a: float = lerp(ARC_A0, ARC_A1, (float(i) + 0.5) / n_seg)
-		_column(CX + ARC_R * cos(a), CZ + ARC_R * sin(a), -a, top, plain, walk)
-	_emit("Wall_2x4", plain)
-	_emit("Wall_2x4_walkway", walk)
-
-func _build_gate(i: int, n_seg: int, top: float) -> void:
-	var a: float = lerp(ARC_A0, ARC_A1, (float(i) + 0.5) / n_seg)
-	var px := CX + ARC_R * cos(a)
-	var pz := CZ + ARC_R * sin(a)
-	var b := Basis(Vector3.UP, -a)
-	for pair in [["Gate_2x4", _base], ["Gate_Door", _base], ["Wall_2x4", _base + COURSE], ["Wall_2x4_walkway", top - COURSE]]:
-		if _meshes.has(pair[0]):
-			var mi := MeshInstance3D.new()
-			mi.mesh = _meshes[pair[0]]
-			mi.transform = Transform3D(b, Vector3(px, pair[1], pz))
-			add_child(mi)
+func _build_wall() -> void:
+	var walk := _base + WALL_H
+	var seg := 2.0
+	var n: int = int(round(WALL_R * (2.0 * OPEN_HALF) / seg))
+	for i in n + 1:
+		var a: float = lerp(PI - OPEN_HALF, PI + OPEN_HALF, float(i) / n)
+		var px := CX + WALL_R * cos(a)
+		var pz := CZ + WALL_R * sin(a)
+		var yaw := -a
+		var in_gate: bool = abs(a - PI) < GATE_HALF
+		if in_gate:
+			# lintel above the gate opening only (opening _base.._base+4)
+			_solid(Vector3(px, _base + 5.0, pz), Vector3(seg + 0.4, 2.0, WALL_THICK), yaw, _stone)
+		else:
+			var hgt := WALL_H + 2.0
+			_solid(Vector3(px, _base + WALL_H - hgt * 0.5, pz), Vector3(seg + 0.4, hgt, WALL_THICK), yaw, _stone)
+		# merlons on the outer edge, every other segment (skip over gate)
+		if i % 2 == 0 and not in_gate:
+			var ro := WALL_R + WALL_THICK * 0.5 - 0.35
+			_solid(Vector3(CX + ro * cos(a), walk + MERLON_H * 0.5, CZ + ro * sin(a)),
+				Vector3(1.1, MERLON_H, 0.6), yaw, _stone)
+	# gate door (simple slab) + jambs
+	_solid(Vector3(CX + WALL_R * cos(PI), _base + 2.0, CZ), Vector3(3.4, 4.0, 0.4), 0.0, _rock)
 
 func _build_towers() -> void:
+	for a in [PI - OPEN_HALF, PI + OPEN_HALF, PI - 0.5, PI + 0.5]:
+		_drum_tower(CX + WALL_R * cos(a), CZ + WALL_R * sin(a))
+
+func _drum_tower(cx: float, cz: float) -> void:
+	var body := CylinderMesh.new()
+	body.top_radius = TOWER_R
+	body.bottom_radius = TOWER_R
+	body.height = TOWER_H + 3.0
+	var mi := MeshInstance3D.new()
+	mi.mesh = body
+	mi.material_override = _stone
+	mi.position = Vector3(cx, _base + TOWER_H - (TOWER_H + 3.0) * 0.5, cz)
+	add_child(mi)
+	# merlon ring on top
 	var top := _base + TOWER_H
-	for a in [ARC_A0, ARC_A1, PI - 0.5, PI + 0.5]:
-		_round_tower(CX + ARC_R * cos(a), CZ + ARC_R * sin(a), top)
+	var mn := 10
+	for i in mn:
+		if i % 2 != 0:
+			continue
+		var a := TAU * float(i) / mn
+		_solid(Vector3(cx + TOWER_R * cos(a), top + MERLON_H * 0.5, cz + TOWER_R * sin(a)),
+			Vector3(1.0, MERLON_H, 0.7), -a, _stone)
 
-func _round_tower(cx: float, cz: float, top_y: float) -> void:
-	var plain: Array = []
-	var walk: Array = []
-	var n: int = maxi(8, int(round(TAU * TOWER_R / TOWER_SEG)))
-	for i in n:
-		var a := TAU * float(i) / n
-		_column(cx + TOWER_R * cos(a), cz + TOWER_R * sin(a), -a, top_y, plain, walk)
-	_emit("Wall_2x2", plain)
-	_emit("Wall_2x2_walkway", walk)
-	# inner platform at wall-walk height (entered by walking off the wall)
-	var floor_m := CylinderMesh.new()
-	floor_m.top_radius = TOWER_R - 0.3
-	floor_m.bottom_radius = TOWER_R - 0.3
-	floor_m.height = 0.5
-	var fi := MeshInstance3D.new()
-	fi.mesh = floor_m
-	fi.material_override = _stone
-	fi.position = Vector3(cx, _walk_y, cz)
-	add_child(fi)
-
-func _build_stairs() -> void:
-	_build_stair(PI - 0.95)
-	_build_stair(PI + 0.95)
-
-func _build_stair(a: float) -> void:
-	var n := 12
-	var ri := ARC_R - 9.5
-	var ro := ARC_R - 1.0
+# Stair running ALONG the inner face of the wall, climbing to the wall-walk.
+func _build_stair_along_wall(a_start: float) -> void:
+	var n := 16
+	var span := 1.1                     # angular length of the stair
+	var r := WALL_R - WALL_THICK * 0.5 - 1.6
 	for i in n:
 		var t := float(i) / (n - 1)
-		var r: float = lerp(ri, ro, t)
-		var y: float = lerp(_base + 0.25, _walk_y, t)
-		var step := BoxMesh.new()
-		step.size = Vector3(3.5, 0.6, (ro - ri) / n + 0.5)
-		var mi := MeshInstance3D.new()
-		mi.mesh = step
-		mi.material_override = _stone
-		mi.transform = Transform3D(Basis(Vector3.UP, -a), Vector3(CX + r * cos(a), y, CZ + r * sin(a)))
-		add_child(mi)
+		var a: float = a_start + span * t
+		var y: float = lerp(_base + 0.3, _base + WALL_H, t)
+		var px := CX + r * cos(a)
+		var pz := CZ + r * sin(a)
+		_solid(Vector3(px, y - 0.3, pz), Vector3(2.6, 0.6, 2.4), -a, _rock)
 
 func _place_capsule() -> void:
 	var mesh := CapsuleMesh.new()
@@ -214,7 +192,7 @@ func _place_capsule() -> void:
 	var m := StandardMaterial3D.new()
 	m.albedo_color = Color(0.9, 0.5, 0.2)
 	mi.material_override = m
-	var gx := CX - ARC_R - 4.0
+	var gx := CX + (WALL_R + 6.0) * cos(PI)
 	mi.position = Vector3(gx, _h(gx, CZ) + 0.9, CZ)
 	add_child(mi)
 
@@ -232,7 +210,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.keycode == KEY_R:
 			_cam.global_position = _spawn
 			_yaw = -PI / 2.0
-			_pitch = 0.03
+			_pitch = 0.05
 			_apply_look()
 
 func _apply_look() -> void:
