@@ -1,0 +1,4 @@
+[gd_scene load_steps=2 format=3 uid="uid://b0mffortcap"]
+[ext_resource type="Script" path="res://scripts/editor/capture_fortress.gd" id="1_fc"]
+[node name="FortressCapture" type="Node3D"]
+script = ExtResource("1_fc")
