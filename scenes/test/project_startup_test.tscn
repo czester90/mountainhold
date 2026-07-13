@@ -1,0 +1,104 @@
+[gd_scene load_steps=9 format=3 uid="uid://b0mfstartup00"]
+
+[ext_resource type="Script" path="res://scripts/test/project_startup_test.gd" id="1_startup"]
+
+[sub_resource type="ProceduralSkyMaterial" id="SkyMat_1"]
+sky_top_color = Color(0.36, 0.4, 0.47, 1)
+sky_horizon_color = Color(0.55, 0.56, 0.58, 1)
+ground_bottom_color = Color(0.18, 0.18, 0.2, 1)
+ground_horizon_color = Color(0.4, 0.4, 0.43, 1)
+sun_angle_max = 30.0
+
+[sub_resource type="Sky" id="Sky_1"]
+sky_material = SubResource("SkyMat_1")
+
+[sub_resource type="Environment" id="Env_1"]
+background_mode = 2
+sky = SubResource("Sky_1")
+ambient_light_source = 3
+ambient_light_color = Color(0.5, 0.52, 0.56, 1)
+ambient_light_energy = 0.4
+tonemap_mode = 2
+fog_enabled = true
+fog_light_color = Color(0.5, 0.52, 0.56, 1)
+fog_density = 0.004
+
+[sub_resource type="PlaneMesh" id="Plane_1"]
+size = Vector2(60, 60)
+
+[sub_resource type="StandardMaterial3D" id="MatGround_1"]
+albedo_color = Color(0.29, 0.3, 0.31, 1)
+roughness = 0.95
+metallic_specular = 0.2
+
+[sub_resource type="CapsuleMesh" id="Capsule_1"]
+radius = 0.3
+height = 1.8
+
+[sub_resource type="StandardMaterial3D" id="MatCapsule_1"]
+albedo_color = Color(0.62, 0.44, 0.32, 1)
+roughness = 0.8
+
+[node name="ProjectStartupTest" type="Node3D"]
+script = ExtResource("1_startup")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Env_1")
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.766044, -0.383022, 0.51503, 0, 0.803857, 0.594824, -0.642788, -0.455707, 0.612977, 0, 12, 0)
+light_energy = 1.1
+shadow_enabled = true
+
+[node name="Ground" type="MeshInstance3D" parent="."]
+mesh = SubResource("Plane_1")
+surface_material_override/0 = SubResource("MatGround_1")
+
+[node name="ReferenceCapsule" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+mesh = SubResource("Capsule_1")
+surface_material_override/0 = SubResource("MatCapsule_1")
+
+[node name="Camera" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 4, 2.2, 6.5)
+current = true
+fov = 60.0
+
+[node name="DebugLayer" type="CanvasLayer" parent="."]
+
+[node name="TitleLabel" type="Label" parent="DebugLayer"]
+anchors_preset = 10
+anchor_right = 1.0
+offset_top = 18.0
+offset_bottom = 58.0
+theme_override_colors/font_color = Color(0.92, 0.92, 0.9, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 1)
+theme_override_constants/outline_size = 6
+theme_override_font_sizes/font_size = 28
+text = "Mountain Fortress Environment Project"
+horizontal_alignment = 1
+
+[node name="DebugPanel" type="Panel" parent="DebugLayer"]
+offset_left = 16.0
+offset_top = 72.0
+offset_right = 430.0
+offset_bottom = 190.0
+
+[node name="MarginContainer" type="MarginContainer" parent="DebugLayer/DebugPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+theme_override_constants/margin_left = 14
+theme_override_constants/margin_top = 12
+theme_override_constants/margin_right = 14
+theme_override_constants/margin_bottom = 12
+
+[node name="DebugLabel" type="Label" parent="DebugLayer/DebugPanel/MarginContainer"]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.85, 0.9, 0.85, 1)
+theme_override_font_sizes/font_size = 16
+text = "Godot version : ...
+Renderer      : ...
+Current scene : ...
+FPS           : ..."

@@ -1,0 +1,10 @@
+# Godot 4 import cache and per-user editor state
+.godot/
+*.import.log
+
+# macOS
+.DS_Store
+
+# Export artifacts
+/build/
+*.app
