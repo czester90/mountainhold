@@ -80,8 +80,9 @@ intentionally **not** created.
 
 ## Current status
 
-- **Stage 00 — Project creation: complete, awaiting review.**
-  Clean project, directory structure, neutral config, Forward+ startup test
-  scene with a 1.8 m reference capsule and a live debug readout.
+- **Stage 00 — Project creation: complete & approved.**
+- **Stage 01 — MCSTEEG asset import & audit: complete, awaiting review.**
+  GLB imported read-only, 26-piece modular kit catalogued on a 1 m grid with
+  labels + scale references. Full findings in `docs/mcsteeg_asset_audit.md`.
 
 See `docs/workflow.md` for the staged process and approval gates.

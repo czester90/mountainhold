@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://b0mfcapture01"]
+
+[ext_resource type="Script" path="res://scripts/editor/capture_stage_01.gd" id="1_capture01"]
+
+[node name="Stage01Capture" type="Node3D"]
+script = ExtResource("1_capture01")

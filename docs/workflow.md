@@ -62,8 +62,8 @@ front overview, elevated overview, ground approach, scale reference.)
 
 | Stage | Title | Status |
 | --- | --- | --- |
-| 00 | Project creation | Complete — awaiting review |
-| 01 | MCSTEEG asset import & audit | Not started |
+| 00 | Project creation | Complete — approved |
+| 01 | MCSTEEG asset import & audit | Complete — awaiting review |
 | 02 | Movement & inspection camera | Not started |
 | 03 | Complete graybox composition | Not started |
 | 04 | Terrain & cliff graybox refinement | Not started |
