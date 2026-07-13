@@ -64,18 +64,31 @@ diffuse only as optional reference. For this audit the terrain uses Terrain3D's
 
 To inspect the **whole** mountain compactly without a 4 km world (and without
 cropping the source), the full map was **downsampled to 1024²** and imported into
-Terrain3D as a **1024 × 1024 m** preview at vertex spacing 1.0, vertical
-`scale = 2400` → **peak ≈ 177 m**. This is an *inspection* terrain, not the final
-compact world. Scale relationship: **1 preview-metre = 4 source-pixels**.
+Terrain3D as a **1024 × 1024 m** preview at vertex spacing 1.0. This is an
+*inspection* terrain, not the final compact world.
+Scale relationship: **1 preview-metre = 4 source-pixels**.
+
+Vertical `scale = 900` → **peak ≈ 66 m** (deliberately **reduced** so the mountain
+is a modest backdrop and the 6 m walls read at the foot, per the reviewer's brief).
+
+## Fortress concept (reviewer-directed): "D-shape" at the mountain foot
+
+- The **mountain is the impassable REAR** — the flat side of a **D**.
+- A **SEMICIRCULAR wall** at the mountain **foot** (on low, flat-ish ground —
+  *not* high on the slope) bulges out into the plain — the curved side of the D.
+- **Gate** sits at the apex of the arc, facing the flat **enemy approach**.
+- **Courtyard** nests inside the D, backed against the mountain.
+- The **arc ends connect to the mountain flanks** (left/right cliff connections).
+- Roughly **half the crop is mountain (rear), half is fortress + approach (front)**.
 
 ## Recommendations (for the Fortress Preparation stage — pending approval)
 
 | Recommendation | Value |
 | --- | --- |
-| **Recommended crop area** | preview **x[208–592], z[308–692]** (384 × 384 m) → source-px **x[832–2368], z[1232–2768]** (a 1536² window), on the **west flank** facing the plain |
+| **Recommended crop area** | preview **x[148–532], z[308–692]** (384 × 384 m) → source-px **x[592–2128], z[1232–2768]** (a 1536² window). Straddles the foot: **west half = flat plain (approach), east half = mountain (rear)** |
 | **Recommended final world** | **384 × 384 m** terrain, **160 × 180 m** playable region |
-| **Recommended vertical scale** | target **50–80 m max relief across the playable area** — this is *less* than the preview's 177 m peak, so lower `scale` (≈ 900–1100) or exclude the sharp summit from the playable band; tune once the plateau base elevation is fixed |
-| Fortress orientation | wall faces **west** (down onto the flat plain = approach); peak is the **rear (east) backdrop**; spurs form **left/right cliffs** |
+| **Recommended vertical scale** | `scale ≈ 900` → peak ≈ 66 m (reduced per brief); gives a modest backdrop under which 6 m walls read at the foot |
+| Fortress layout | **D-shape**: semicircular wall at the foot facing **west** (plain = approach); **mountain = rear backdrop (east)**; arc ends = **left/right cliffs**; gate at arc apex |
 
 ### Important finding — the site is steep
 

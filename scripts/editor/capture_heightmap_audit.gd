@@ -34,13 +34,13 @@ func _h(x: float, z: float) -> float:
 
 func _capture_all() -> void:
 	var shots := [
-		{"n": "01_full_overview", "ov": true, "pos": Vector3(150, 420, 900), "tgt": Vector3(460, 40, 500)},
-		{"n": "02_top_down", "ov": true, "pos": Vector3(400, 780, 501), "tgt": Vector3(400, 0, 500)},
-		{"n": "03_ground_valley", "ov": false, "pos": Vector3(240, _h(240, 500) + 2.0, 500), "tgt": Vector3(470, _h(470, 500) + 60.0, 520)},
-		{"n": "04_scale_reference", "ov": false, "pos": Vector3(338, _h(338, 500) + 2.2, 510), "tgt": Vector3(344, _h(344, 500) + 0.9, 500)},
-		{"n": "05_proposed_fortress", "ov": true, "pos": Vector3(298, _h(298, 500) + 46.0, 498), "tgt": Vector3(410, _h(410, 500) + 10.0, 508)},
-		{"n": "06_proposed_approach", "ov": true, "pos": Vector3(392, _h(392, 500) + 40.0, 500), "tgt": Vector3(280, _h(280, 500) + 2.0, 500)},
-		{"n": "07_proposed_crop", "ov": true, "pos": Vector3(400, 560, 860), "tgt": Vector3(400, 20, 470)},
+		{"n": "01_full_overview", "ov": true, "pos": Vector3(150, 240, 880), "tgt": Vector3(400, 20, 500)},
+		{"n": "02_top_down", "ov": true, "pos": Vector3(340, 360, 501), "tgt": Vector3(340, 0, 500)},
+		{"n": "03_ground_valley", "ov": false, "pos": Vector3(228, _h(228, 500) + 2.0, 500), "tgt": Vector3(460, _h(460, 500) + 30.0, 510)},
+		{"n": "04_scale_reference", "ov": false, "pos": Vector3(287, _h(287, 500) + 2.2, 508), "tgt": Vector3(293, _h(293, 500) + 0.9, 500)},
+		{"n": "05_proposed_fortress", "ov": true, "pos": Vector3(248, _h(248, 500) + 34.0, 502), "tgt": Vector3(370, _h(370, 500) + 10.0, 500)},
+		{"n": "06_proposed_approach", "ov": true, "pos": Vector3(345, _h(345, 500) + 30.0, 500), "tgt": Vector3(235, _h(235, 500) + 2.0, 500)},
+		{"n": "07_proposed_crop", "ov": true, "pos": Vector3(340, 380, 780), "tgt": Vector3(340, 12, 455)},
 	]
 	var overlays: Node = _scene.get_node("Overlays")
 	for s in shots:
