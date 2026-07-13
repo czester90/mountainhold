@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://b0mfhmcapture"]
+
+[ext_resource type="Script" path="res://scripts/editor/capture_heightmap_audit.gd" id="1_hmcap"]
+
+[node name="HeightmapAuditCapture" type="Node3D"]
+script = ExtResource("1_hmcap")

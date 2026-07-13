@@ -81,8 +81,13 @@ intentionally **not** created.
 ## Current status
 
 - **Stage 00 — Project creation: complete & approved.**
-- **Stage 01 — MCSTEEG asset import & audit: complete, awaiting review.**
-  GLB imported read-only, 26-piece modular kit catalogued on a 1 m grid with
-  labels + scale references. Full findings in `docs/mcsteeg_asset_audit.md`.
+- **Stage 01 — MCSTEEG asset import & audit: complete & approved.**
+  GLB imported read-only, 26-piece modular kit catalogued on a 1 m grid.
+  Findings in `docs/mcsteeg_asset_audit.md`.
+- **Heightmap Audit — complete, awaiting review.** Terrain3D v1.0.2 installed &
+  verified on Godot 4.7; Motion Forge "Grand Mountain" heightmap (CC0) imported
+  as a neutral-grey inspection terrain; crop / fortress location / approach
+  proposed for approval. Findings in `docs/heightmap_audit.md`, plugin in
+  `docs/dependencies.md`. **No crop committed yet.**
 
 See `docs/workflow.md` for the staged process and approval gates.

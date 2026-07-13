@@ -1,0 +1,15 @@
+Grand Mountain Height Map
+
+Height Map Resolution: (PNG, TIF and EXR) 4096 X 4096
+
+Diffuse Map: (EXR and PNG) 4096 X 4096
+
+Bump Map for Material: (PNG and TIF) 4096 X 4096
+
+File Type: PNG, TIF and EXR
+
+Notes:
+
+There is a selection of file formats, and the diffuse map also comes as an EXR and is saved in a linear format, so may look washed out. Please increase the gamma to adjust the look.
+
+The EXR and 4k resolution produce much higher detail and quality – but you may wish to convert these to another file type to produce better performance if using in an animation or video game.

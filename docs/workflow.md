@@ -63,7 +63,9 @@ front overview, elevated overview, ground approach, scale reference.)
 | Stage | Title | Status |
 | --- | --- | --- |
 | 00 | Project creation | Complete — approved |
-| 01 | MCSTEEG asset import & audit | Complete — awaiting review |
+| 01 | MCSTEEG asset import & audit | Complete — approved |
+| T1 | Heightmap audit (Terrain3D + Motion Forge) | Complete — awaiting review |
+| T2 | Heightmap fortress preparation (approved crop) | Blocked on T1 approval |
 | 02 | Movement & inspection camera | Not started |
 | 03 | Complete graybox composition | Not started |
 | 04 | Terrain & cliff graybox refinement | Not started |
