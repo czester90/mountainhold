@@ -39,6 +39,9 @@ func _shoot() -> void:
 		{"n": "05_tower", "pos": Vector3(cx - 26, b + 9, cz + 40), "tgt": Vector3(cx, b + 6, cz + r)},
 		{"n": "06_scale", "pos": Vector3(cx - r - 9, b + 2.0, cz + 4), "tgt": Vector3(cx - r - 4, b + 0.9, cz)},
 		{"n": "07_top_down", "pos": Vector3(cx, b + 150, cz), "tgt": Vector3(cx, 0, cz)},
+		{"n": "08_battlement_close", "pos": Vector3(cx - 16, b + 8.5, cz + 20), "tgt": Vector3(cx - 40, b + 6.0, cz + 16)},
+		{"n": "09_tower_close", "pos": Vector3(cx - 20, b + 10, cz + 36), "tgt": Vector3(cx - 39, b + 7.0, cz + 21)},
+		{"n": "10_stair_close", "pos": Vector3(cx - 4, b + 3.0, cz + 44), "tgt": Vector3(cx - 29, b + 3.0, cz + 33)},
 	]
 	for s in shots:
 		_cam.global_position = s["pos"]

@@ -1,13 +1,14 @@
 extends Node3D
 
 ## Structural pass (environment only, no gameplay): a Helm's-Deep-style fortress
-## built as SOLID stone geometry (no see-through) on a sculpted Terrain3D.
-##  - the terrain is sculpted into a horseshoe: a flat plateau ringed by an
-##    enclosing mountain ridge on the rear + both sides, open only at the front;
-##  - a solid, thick curved curtain wall closes the open front, with an outer
-##    merlon parapet and a stair that runs ALONG the wall up to the walk;
-##  - small solid round drum towers punctuate the wall;
-##  - a gate opening sits at the front apex.
+## as SOLID stone geometry on a horseshoe-sculpted Terrain3D.
+##  - flat plateau ringed by an enclosing mountain ridge (rear + sides), open front;
+##  - solid thick curved curtain wall closing the front, with a proper crenellated
+##    parapet (continuous sill + evenly spaced merlons/crenels) on walls AND towers;
+##  - small-ish solid drum towers punctuate the wall;
+##  - a narrow WOODEN stair flight on each curtain span between towers, climbing to
+##    the wall-walk (the classic timber allure stair);
+##  - a gate opening at the front apex.
 ## Controls: mouse look | WASD | Q/E | Shift | R reset | Esc release/quit.
 
 const HEIGHT_EXR := "res://assets/raw/terrain/motion_forge/Height_Map.exr"
@@ -19,34 +20,40 @@ const CZ := 500.0
 const R_FLAT := 46.0
 const R_BLEND := 14.0
 const WALL_R := 44.0
-const OPEN_HALF := 1.20        # half-angle of the open front (rad), centred on west (PI)
-const WALL_H := 6.0            # walk surface above plateau
+const OPEN_HALF := 1.20
+const WALL_H := 6.0
 const WALL_THICK := 2.6
-const MERLON_H := 1.3
-const TOWER_R := 3.2           # smaller towers
-const TOWER_H := 7.5
-const GATE_HALF := 0.055       # gate opening half-angle
+const TOWER_R := 4.2           # a little bigger
+const TOWER_H := 7.0
+const GATE_HALF := 0.055
 const RIDGE_MAX := 58.0
 const RIDGE_SLOPE := 1.35
 const RMAX := 104.0
+
+# crenellation
+const PARAPET_H := 0.5
+const MERLON_H := 1.0
+const CREN_STEP := 2.0         # merlon + crenel period
+
+# tower angles + the spans between them (each span gets one stair)
+const TOWER_A := [PI - OPEN_HALF, PI - 0.5, PI + 0.5, PI + OPEN_HALF]
+const STAIR_A := [PI - 0.85, PI + 0.25, PI + 0.85]
 
 var _terrain: Node
 var _cam: Camera3D
 var _base := 0.0
 var _stone: StandardMaterial3D
 var _rock: StandardMaterial3D
+var _wood: StandardMaterial3D
 
 var _yaw := -PI / 2.0
 var _pitch := 0.05
 var _spawn := Vector3(250, 20, 500)
 
 func _ready() -> void:
-	_stone = StandardMaterial3D.new()
-	_stone.albedo_color = Color(0.44, 0.46, 0.43)
-	_stone.roughness = 0.92
-	_rock = StandardMaterial3D.new()
-	_rock.albedo_color = Color(0.4, 0.4, 0.42)
-	_rock.roughness = 1.0
+	_stone = _mat(Color(0.44, 0.46, 0.43), 0.92)
+	_rock = _mat(Color(0.4, 0.4, 0.42), 1.0)
+	_wood = _mat(Color(0.34, 0.22, 0.12), 0.85)
 	_terrain = $Terrain
 	_cam = $FlyCamera
 	_terrain.call("set_camera", _cam)
@@ -56,12 +63,18 @@ func _ready() -> void:
 	_sculpt_terrain()
 	_build_wall()
 	_build_towers()
-	_build_stair_along_wall(PI - 0.35)
+	_build_stairs()
 	_place_capsule()
 	_spawn = Vector3(CX + (WALL_R + 26.0) * cos(PI), _base + 5.0, CZ)
 	_cam.global_position = _spawn
 	_apply_look()
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+func _mat(col: Color, rough: float) -> StandardMaterial3D:
+	var m := StandardMaterial3D.new()
+	m.albedo_color = col
+	m.roughness = rough
+	return m
 
 func _import_terrain() -> void:
 	var img := Image.new()
@@ -80,7 +93,6 @@ func _h(x: float, z: float) -> float:
 	return 0.0 if is_nan(v) else v
 
 func _ang_to_west(dx: float, dz: float) -> float:
-	# absolute angular distance of direction (dx,dz) from west (-X)
 	var a := atan2(dz, dx)
 	var d: float = abs(a - PI)
 	if d > PI:
@@ -122,8 +134,9 @@ func _solid(center: Vector3, size: Vector3, yaw: float, mat: StandardMaterial3D)
 	mi.transform = Transform3D(Basis(Vector3.UP, yaw), center)
 	add_child(mi)
 
+# --- wall body + gate -----------------------------------------------------
+
 func _build_wall() -> void:
-	var walk := _base + WALL_H
 	var seg := 2.0
 	var n: int = int(round(WALL_R * (2.0 * OPEN_HALF) / seg))
 	for i in n + 1:
@@ -131,57 +144,75 @@ func _build_wall() -> void:
 		var px := CX + WALL_R * cos(a)
 		var pz := CZ + WALL_R * sin(a)
 		var yaw := -a
-		var in_gate: bool = abs(a - PI) < GATE_HALF
-		if in_gate:
-			# lintel above the gate opening only (opening _base.._base+4)
+		if abs(a - PI) < GATE_HALF:
 			_solid(Vector3(px, _base + 5.0, pz), Vector3(seg + 0.4, 2.0, WALL_THICK), yaw, _stone)
 		else:
 			var hgt := WALL_H + 2.0
 			_solid(Vector3(px, _base + WALL_H - hgt * 0.5, pz), Vector3(seg + 0.4, hgt, WALL_THICK), yaw, _stone)
-		# merlons on the outer edge, every other segment (skip over gate)
-		if i % 2 == 0 and not in_gate:
-			var ro := WALL_R + WALL_THICK * 0.5 - 0.35
-			_solid(Vector3(CX + ro * cos(a), walk + MERLON_H * 0.5, CZ + ro * sin(a)),
-				Vector3(1.1, MERLON_H, 0.6), yaw, _stone)
-	# gate door (simple slab) + jambs
 	_solid(Vector3(CX + WALL_R * cos(PI), _base + 2.0, CZ), Vector3(3.4, 4.0, 0.4), 0.0, _rock)
+	# crenellate the wall's outer edge (skip the gate)
+	_crenellate_arc(PI - OPEN_HALF, PI + OPEN_HALF, WALL_R + WALL_THICK * 0.5 - 0.35, _base + WALL_H, GATE_HALF)
 
 func _build_towers() -> void:
-	for a in [PI - OPEN_HALF, PI + OPEN_HALF, PI - 0.5, PI + 0.5]:
+	for a in TOWER_A:
 		_drum_tower(CX + WALL_R * cos(a), CZ + WALL_R * sin(a))
 
 func _drum_tower(cx: float, cz: float) -> void:
+	var platform := _base + TOWER_H
+	var total := TOWER_H + 3.0
 	var body := CylinderMesh.new()
 	body.top_radius = TOWER_R
 	body.bottom_radius = TOWER_R
-	body.height = TOWER_H + 3.0
+	body.height = total
 	var mi := MeshInstance3D.new()
 	mi.mesh = body
 	mi.material_override = _stone
-	mi.position = Vector3(cx, _base + TOWER_H - (TOWER_H + 3.0) * 0.5, cz)
+	mi.position = Vector3(cx, platform - total * 0.5, cz)
 	add_child(mi)
-	# merlon ring on top
-	var top := _base + TOWER_H
-	var mn := 10
-	for i in mn:
-		if i % 2 != 0:
-			continue
-		var a := TAU * float(i) / mn
-		_solid(Vector3(cx + TOWER_R * cos(a), top + MERLON_H * 0.5, cz + TOWER_R * sin(a)),
-			Vector3(1.0, MERLON_H, 0.7), -a, _stone)
+	_crenellate_ring(cx, cz, TOWER_R - 0.15, platform)
 
-# Stair running ALONG the inner face of the wall, climbing to the wall-walk.
-func _build_stair_along_wall(a_start: float) -> void:
-	var n := 16
-	var span := 1.1                     # angular length of the stair
-	var r := WALL_R - WALL_THICK * 0.5 - 1.6
+# --- crenellation: continuous sill + evenly spaced merlons ----------------
+
+func _battlement(px: float, pz: float, yaw: float, y_walk: float, merlon: bool) -> void:
+	_solid(Vector3(px, y_walk + PARAPET_H * 0.5, pz), Vector3(1.15, PARAPET_H, 0.55), yaw, _stone)
+	if merlon:
+		_solid(Vector3(px, y_walk + PARAPET_H + MERLON_H * 0.5, pz), Vector3(1.0, MERLON_H, 0.6), yaw, _stone)
+
+func _crenellate_arc(a0: float, a1: float, radius: float, y_walk: float, gate_half: float) -> void:
+	var arc_len := radius * absf(a1 - a0)
+	var n: int = int(round(arc_len / 1.0))
+	var period: int = int(round(CREN_STEP / 1.0))
+	for i in n + 1:
+		var a: float = lerp(a0, a1, float(i) / n)
+		if abs(a - PI) < gate_half + 0.03:
+			continue
+		_battlement(CX + radius * cos(a), CZ + radius * sin(a), -a, y_walk, i % period == 0)
+
+func _crenellate_ring(cx: float, cz: float, radius: float, y_walk: float) -> void:
+	var n: int = maxi(12, int(round(TAU * radius / 1.0)))
+	var period: int = maxi(2, int(round(CREN_STEP / 1.0)))
+	for i in n:
+		var a := TAU * float(i) / n
+		_battlement(cx + radius * cos(a), cz + radius * sin(a), -a, y_walk, i % period == 0)
+
+# --- narrow wooden stair on each curtain span -----------------------------
+
+func _build_stairs() -> void:
+	for a in STAIR_A:
+		_wooden_flight(a)
+
+func _wooden_flight(a: float) -> void:
+	var n := 12
+	var w := 1.4
+	var r_out := WALL_R - WALL_THICK * 0.5 - 0.2
+	var r_in := r_out - 7.5
+	var yaw := -a
 	for i in n:
 		var t := float(i) / (n - 1)
-		var a: float = a_start + span * t
-		var y: float = lerp(_base + 0.3, _base + WALL_H, t)
-		var px := CX + r * cos(a)
-		var pz := CZ + r * sin(a)
-		_solid(Vector3(px, y - 0.3, pz), Vector3(2.6, 0.6, 2.4), -a, _rock)
+		var r: float = lerp(r_in, r_out, t)
+		var y: float = lerp(_base + 0.25, _base + WALL_H, t)
+		_solid(Vector3(CX + r * cos(a), y - 0.25, CZ + r * sin(a)),
+			Vector3(w, 0.55, 7.5 / n + 0.45), yaw, _wood)
 
 func _place_capsule() -> void:
 	var mesh := CapsuleMesh.new()
@@ -189,8 +220,7 @@ func _place_capsule() -> void:
 	mesh.height = 1.8
 	var mi := MeshInstance3D.new()
 	mi.mesh = mesh
-	var m := StandardMaterial3D.new()
-	m.albedo_color = Color(0.9, 0.5, 0.2)
+	var m := _mat(Color(0.9, 0.5, 0.2), 0.7)
 	mi.material_override = m
 	var gx := CX + (WALL_R + 6.0) * cos(PI)
 	mi.position = Vector3(gx, _h(gx, CZ) + 0.9, CZ)
