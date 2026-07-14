@@ -155,50 +155,74 @@ func _sculpt_terrain() -> void:
 
 # --- fortress -------------------------------------------------------------
 
+const RUNS := 3          # straight wall runs; RUNS+1 towers at the joints
+
 func _arc_pt(a: float) -> Vector3:
 	return Vector3(CX + WALL_R * cos(a), _base, CZ + WALL_R * sin(a))
 
+func _up() -> Vector3:
+	return Vector3(0, MODULE, 0)
+
+func _inward(p: Vector3) -> Vector3:
+	return Vector3(CX - p.x, 0, CZ - p.z).normalized()
+
+func _tower_angle(k: int) -> float:
+	return lerp(PI - OPEN_HALF, PI + OPEN_HALF, float(k) / float(RUNS))
+
 func _build_wall() -> void:
-	var seg_ang := 2.0 * asin(MODULE * 0.5 / WALL_R)
-	var a0 := PI - OPEN_HALF
-	var a1 := PI + OPEN_HALF
-	var n: int = int(round((a1 - a0) / seg_ang))
-	var gate_i := n / 2
-	for i in n:
-		var a: float = a0 + seg_ang * i
-		var an: float = a0 + seg_ang * (i + 1)
-		var p := _arc_pt(a)
-		var pn := _arc_pt(an)
-		var dir := (pn - p)
-		var yaw := atan2(-dir.z, dir.x)
-		var mid := (p + pn) * 0.5
-		var inward := (Vector3(CX, _base, CZ) - mid).normalized()
-		if i == gate_i:
-			_put("Courtine_Door_Arch", p, yaw)
+	# straight runs between tower joints; towers hide the bends so each run's
+	# walk + battlements stay aligned (no zig-zag).
+	var gate_run := RUNS / 2
+	for k in RUNS:
+		_wall_run(_arc_pt(_tower_angle(k)), _arc_pt(_tower_angle(k + 1)), k == gate_run)
+
+func _wall_run(a: Vector3, b: Vector3, has_gate: bool) -> void:
+	var span := b - a
+	var length := span.length()
+	var dir := span / length
+	var yaw := atan2(-dir.z, dir.x)
+	var n: int = int(ceil(length / MODULE))
+	var step := length / n
+	var gate_j := n / 2 if has_gate else -1
+	for j in n:
+		var base_p := a + dir * step * j
+		var centre_p := a + dir * step * (float(j) + 0.5)
+		var inw := _inward(centre_p)
+		if j == gate_j:
+			_put("Courtine_Door_Arch", base_p, yaw)
 		else:
-			_put("Courtine_Wall", p, yaw)
-		# walk floor just inside, battlement cap on top
-		_put("Wall_Floor", mid + inward * 2.6 + Vector3(0, MODULE, 0), yaw)
-		_put("Wall_Battlements", mid + Vector3(0, MODULE, 0), yaw)
+			_put("Courtine_Wall", base_p, yaw)
+		_put("Wall_Battlements", centre_p + _up(), yaw)
+		_put("Wall_Floor", centre_p + inw * 2.6 + _up(), yaw)
 
 func _build_towers() -> void:
-	for a in [PI - OPEN_HALF, PI, PI + OPEN_HALF, PI - 0.62, PI + 0.62]:
-		_drum(_arc_pt(a))
+	for k in RUNS + 1:
+		_drum(_arc_pt(_tower_angle(k)))
 
 func _drum(centre: Vector3) -> void:
-	# 4 quarter-round corners form a full round drum (~12 m dia), 6 m tall + battlement corners
-	for q in 4:
-		var yaw := PI * 0.5 * q
-		_put("Wall_Corner_Round", centre, yaw)
-		_put("Wall_Battlements_Corner_Round", centre + Vector3(0, MODULE, 0), yaw)
+	# hexagonal drum from 6 Courtine_Wall panels (chord = 6 m at R = 6), ~12 m dia,
+	# battlement ring on top, 2x2 floor cap.
+	var rt := 6.0
+	var panels := 6
+	for i in panels:
+		var a := TAU * float(i) / panels
+		var an := TAU * float(i + 1) / panels
+		var p := Vector3(centre.x + rt * cos(a), _base, centre.z + rt * sin(a))
+		var pn := Vector3(centre.x + rt * cos(an), _base, centre.z + rt * sin(an))
+		var dir := (pn - p).normalized()
+		var yaw := atan2(-dir.z, dir.x)
+		_put("Courtine_Wall", p, yaw)
+		_put("Wall_Battlements", (p + pn) * 0.5 + _up(), yaw)
+	for sx in [-3.0, 3.0]:
+		for sz in [-3.0, 3.0]:
+			_put("Wall_Floor", centre + Vector3(sx, MODULE, sz), 0.0)
 
 func _build_stairs() -> void:
-	for a in [PI - 0.9, PI + 0.35, PI + 0.9]:
-		var mid := _arc_pt(a)
-		var inward := (Vector3(CX, _base, CZ) - mid).normalized()
-		var dir := Vector3(-sin(a), 0, cos(a))
-		var yaw := atan2(-dir.z, dir.x)
-		_put("Stairs", mid + inward * 4.5, yaw)
+	for k in RUNS:
+		var mid := (_arc_pt(_tower_angle(k)) + _arc_pt(_tower_angle(k + 1))) * 0.5
+		var inw := _inward(mid)
+		var yaw := atan2(-inw.z, inw.x) + PI
+		_put("Stairs", mid + inw * 5.0, yaw)
 
 func _place_capsule() -> void:
 	var mesh := CapsuleMesh.new(); mesh.radius = 0.3; mesh.height = 1.8
