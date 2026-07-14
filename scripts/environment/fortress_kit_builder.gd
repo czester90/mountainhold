@@ -80,6 +80,20 @@ func _build_materials() -> void:
 	_mats["BrickWall"] = _brick("BrickWall", "BrickWall")
 	_mats["BrickTrims"] = _brick("BrickTrims", "BrickTrims")
 	_mats["BrickFloor"] = _brick("BrickFloor", "BrickFloor")
+	_brick_tri = _brick("BrickWall", "BrickWall")
+	_brick_tri.uv1_triplanar = true
+	_brick_tri.uv1_world_triplanar = true
+	_brick_tri.uv1_scale = Vector3(0.16, 0.16, 0.16)
+	_floor_mat = _brick("BrickFloor", "BrickFloor")
+	_floor_mat.uv1_triplanar = true
+	_floor_mat.uv1_world_triplanar = true
+	_floor_mat.uv1_scale = Vector3(0.16, 0.16, 0.16)
+	_wood = StandardMaterial3D.new()
+	_wood.albedo_color = Color(0.34, 0.22, 0.12)
+	_wood.roughness = 0.9
+	_dark = StandardMaterial3D.new()
+	_dark.albedo_color = Color(0.08, 0.07, 0.06)
+	_dark.roughness = 1.0
 
 func _load_kit_meshes() -> void:
 	var doc := GLTFDocument.new()
@@ -156,17 +170,22 @@ func _sculpt_terrain() -> void:
 # --- fortress -------------------------------------------------------------
 
 const RUNS := 4          # straight wall runs; RUNS+1 towers at the joints
-const TOWER_R := 4.0
+const WALL_H := 6.0
+const TOWER_R := 4.2
 const TOWER_H := 8.5     # a bit taller than the 6 m wall
-const CORE_D := 2.8      # wall body depth (thickness)
+const WALL_THICK := 3.0
+const MERLON_H := 1.1
+const PARAPET_H := 0.5
+const CREN_STEP := 2.0
+const GATE_W := 4.0
 
-var _core_mat: StandardMaterial3D
+var _brick_tri: StandardMaterial3D
+var _floor_mat: StandardMaterial3D
+var _wood: StandardMaterial3D
+var _dark: StandardMaterial3D
 
 func _arc_pt(a: float) -> Vector3:
 	return Vector3(CX + WALL_R * cos(a), _base, CZ + WALL_R * sin(a))
-
-func _up() -> Vector3:
-	return Vector3(0, MODULE, 0)
 
 func _inward(p: Vector3) -> Vector3:
 	return Vector3(CX - p.x, 0, CZ - p.z).normalized()
@@ -183,86 +202,119 @@ func _box(centre: Vector3, size: Vector3, yaw: float, mat: StandardMaterial3D) -
 	mi.transform = Transform3D(Basis(Vector3.UP, yaw), centre)
 	add_child(mi)
 
-func _put_s(mesh_name: String, pos: Vector3, yaw: float, scale: Vector3) -> void:
-	var mesh = _meshes.get(mesh_name)
-	if mesh == null:
+# crenellation: continuous sill + merlon, sitting on the outer edge
+func _merlon(pos: Vector3, yaw: float, merlon: bool) -> void:
+	_box(Vector3(pos.x, pos.y + PARAPET_H * 0.5, pos.z), Vector3(CREN_STEP + 0.1, PARAPET_H, 0.5), yaw, _brick_tri)
+	if merlon:
+		_box(Vector3(pos.x, pos.y + PARAPET_H + MERLON_H * 0.5, pos.z), Vector3(1.0, MERLON_H, 0.55), yaw, _brick_tri)
+
+# a simple stepped stair from p0 (floor) up to p1 (top)
+func _stair(p0: Vector3, p1: Vector3, width: float, mat: StandardMaterial3D) -> void:
+	var horiz := Vector3(p1.x - p0.x, 0, p1.z - p0.z)
+	var run := horiz.length()
+	if run < 0.5:
 		return
-	var mi := MeshInstance3D.new()
-	mi.mesh = mesh
-	for i in mesh.get_surface_count():
-		var sm = mesh.surface_get_material(i)
-		mi.set_surface_override_material(i, _mats.get(sm.resource_name if sm else "", _mats["BrickWall"]))
-	mi.transform = Transform3D(Basis(Vector3.UP, yaw).scaled(scale), pos)
-	add_child(mi)
+	var dir := horiz / run
+	var yaw := atan2(-dir.z, dir.x)
+	var n: int = maxi(5, int((p1.y - p0.y) / 0.45))
+	for i in n:
+		var t := (float(i) + 0.5) / n
+		var c := p0.lerp(p1, t)
+		_box(c, Vector3(width, 0.5, run / n + 0.5), yaw, mat)
 
 func _build_wall() -> void:
-	if _core_mat == null:
-		_core_mat = _brick("BrickWall", "BrickWall")
-		_core_mat.uv1_triplanar = true
-		_core_mat.uv1_world_triplanar = true
-		_core_mat.uv1_scale = Vector3(0.16, 0.16, 0.16)
 	var gate_run := RUNS / 2
 	for k in RUNS:
 		_wall_run(_arc_pt(_tower_angle(k)), _arc_pt(_tower_angle(k + 1)), k == gate_run)
 
 func _wall_run(a: Vector3, b: Vector3, has_gate: bool) -> void:
-	# inset the run so it meets the tower rims instead of running into them
+	# overlap slightly INTO the towers so wall and tower touch (no gap)
 	var full := (b - a).normalized()
-	var a2 := a + full * (TOWER_R + 0.5)
-	var b2 := b - full * (TOWER_R + 0.5)
+	var a2 := a + full * (TOWER_R - 1.2)
+	var b2 := b - full * (TOWER_R - 1.2)
 	var span := b2 - a2
 	var length := span.length()
 	if length < 1.0:
 		return
 	var dir := span / length
 	var yaw := atan2(-dir.z, dir.x)
-	var n: int = maxi(1, int(round(length / MODULE)))
-	var step := length / n
-	var gate_j := n / 2 if has_gate else -1
+	var mid := (a2 + b2) * 0.5
+	var inw := _inward(mid)
+	var half_off := inw * (WALL_THICK * 0.5)
+	var gate_lo := length * 0.5 - GATE_W * 0.5
+	var gate_hi := length * 0.5 + GATE_W * 0.5
+	# body in 1.5 m columns (lets the gate leave an opening)
+	var seg := 1.5
+	var n: int = maxi(1, int(ceil(length / seg)))
+	var s := length / n
 	for j in n:
-		var base_p := a2 + dir * step * j
-		var ctr := a2 + dir * step * (float(j) + 0.5)
-		var inw := _inward(ctr)
-		var core_c := Vector3(ctr.x + inw.x * (CORE_D * 0.5), _base + MODULE * 0.5, ctr.z + inw.z * (CORE_D * 0.5))
-		if j == gate_j:
-			_put("Courtine_Door_Arch", base_p, yaw)                       # arched opening, no core (passable)
+		var tc := (float(j) + 0.5) * s
+		var c := a2 + dir * tc
+		var core_c := Vector3(c.x + half_off.x, _base + MODULE * 0.5, c.z + half_off.z)
+		if has_gate and tc > gate_lo and tc < gate_hi:
+			_box(Vector3(core_c.x, _base + 5.0, core_c.z), Vector3(s + 0.1, 2.0, WALL_THICK), yaw, _brick_tri)  # lintel
 		else:
-			_put("Courtine_Wall", base_p, yaw)                            # detailed outer facing
-			_box(core_c, Vector3(step + 0.3, MODULE, CORE_D), yaw, _core_mat)  # solid thick body
-		_put("Wall_Floor", Vector3(core_c.x, _base + MODULE, core_c.z), yaw)   # visible wall-walk
-		_put("Wall_Battlements", Vector3(ctr.x, _base + MODULE, ctr.z), yaw)   # outer parapet
+			_box(core_c, Vector3(s + 0.1, MODULE, WALL_THICK), yaw, _brick_tri)
+	# walk floor along the whole run
+	_box(Vector3(mid.x + half_off.x, _base + MODULE + 0.15, mid.z + half_off.z), Vector3(length, 0.3, WALL_THICK), yaw, _floor_mat)
+	# merlons along the outer edge
+	var nm: int = maxi(1, int(length / CREN_STEP))
+	for m in nm + 1:
+		var tt := float(m) / nm * length
+		if has_gate and tt > gate_lo - 1.0 and tt < gate_hi + 1.0:
+			continue
+		var pm := a2 + dir * tt
+		_merlon(Vector3(pm.x, _base + MODULE, pm.z), yaw, m % 2 == 0)
+	if has_gate:
+		var gp := a2 + dir * (length * 0.5)
+		_box(Vector3(gp.x, _base + 2.0, gp.z), Vector3(GATE_W - 0.6, 4.0, 0.4), yaw, _dark)  # gate leaves
 
 func _build_towers() -> void:
 	for k in RUNS + 1:
 		_drum(_arc_pt(_tower_angle(k)))
 
 func _drum(centre: Vector3) -> void:
-	# small solid round tower, a little taller than the wall, battlement ring + cap
 	var cyl := CylinderMesh.new()
 	cyl.top_radius = TOWER_R
 	cyl.bottom_radius = TOWER_R
 	cyl.height = TOWER_H + 2.0
 	var mi := MeshInstance3D.new()
 	mi.mesh = cyl
-	mi.material_override = _core_mat
+	mi.material_override = _brick_tri
 	mi.position = Vector3(centre.x, _base + TOWER_H - (TOWER_H + 2.0) * 0.5, centre.z)
 	add_child(mi)
-	_put("Wall_Floor", Vector3(centre.x, _base + TOWER_H, centre.z), 0.0)
-	var ring := 8
+	# platform cap
+	var cap := CylinderMesh.new()
+	cap.top_radius = TOWER_R
+	cap.bottom_radius = TOWER_R
+	cap.height = 0.3
+	var ci := MeshInstance3D.new()
+	ci.mesh = cap
+	ci.material_override = _floor_mat
+	ci.position = Vector3(centre.x, _base + TOWER_H + 0.15, centre.z)
+	add_child(ci)
+	# small even merlon ring (no overhang)
+	var ring: int = maxi(10, int(TAU * TOWER_R / CREN_STEP))
 	for i in ring:
 		var a := TAU * float(i) / ring
 		var p := Vector3(centre.x + TOWER_R * cos(a), _base + TOWER_H, centre.z + TOWER_R * sin(a))
-		var an := TAU * float(i + 1) / ring
-		var pn := Vector3(centre.x + TOWER_R * cos(an), _base, centre.z + TOWER_R * sin(an))
-		var dir := Vector3(pn.x - p.x, 0, pn.z - p.z).normalized()
-		_put("Wall_Battlements", p, atan2(-dir.z, dir.x))
+		_merlon(p, -a, i % 2 == 0)
+	# door facing the courtyard + short stair from wall-walk up to the platform
+	var inw := _inward(centre)
+	var dyaw := atan2(-inw.z, inw.x)
+	_box(Vector3(centre.x + inw.x * TOWER_R, _base + WALL_H - 1.0 + 1.1, centre.z + inw.z * TOWER_R), Vector3(1.4, 2.2, 0.5), dyaw, _dark)
+	_stair(centre + inw * (TOWER_R + 3.0) + Vector3(0, WALL_H - 5.0, 0), centre + inw * (TOWER_R - 0.5) + Vector3(0, TOWER_H, 0), 2.2, _wood)
 
 func _build_stairs() -> void:
+	var gate_run := RUNS / 2
 	for k in RUNS:
+		if k == gate_run:
+			continue     # keep the gate span clear
 		var mid := (_arc_pt(_tower_angle(k)) + _arc_pt(_tower_angle(k + 1))) * 0.5
 		var inw := _inward(mid)
-		var yaw := atan2(-inw.z, inw.x) + PI
-		_put_s("Stairs", mid + inw * 5.0, yaw, Vector3(0.28, 1.0, 1.0))   # narrow flight
+		var top := Vector3(mid.x + inw.x * (WALL_THICK + 0.5), _base + WALL_H, mid.z + inw.z * (WALL_THICK + 0.5))
+		var bottom := Vector3(mid.x + inw.x * 8.0, _base + 0.25, mid.z + inw.z * 8.0)
+		_stair(bottom, top, 2.2, _wood)
 
 func _place_capsule() -> void:
 	var mesh := CapsuleMesh.new(); mesh.radius = 0.3; mesh.height = 1.8
