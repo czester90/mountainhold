@@ -198,6 +198,18 @@ func _box(centre: Vector3, size: Vector3, yaw: float, mat: StandardMaterial3D) -
 	mi.transform = Transform3D(Basis(Vector3.UP, yaw), centre)
 	add_child(mi)
 
+func _put_s(mesh_name: String, pos: Vector3, yaw: float, scale: Vector3) -> void:
+	var mesh = _meshes.get(mesh_name)
+	if mesh == null:
+		return
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	for i in mesh.get_surface_count():
+		var sm = mesh.surface_get_material(i)
+		mi.set_surface_override_material(i, _mats.get(sm.resource_name if sm else "", _mats["BrickWall"]))
+	mi.transform = Transform3D(Basis(Vector3.UP, yaw).scaled(scale), pos)
+	add_child(mi)
+
 func _build_wall() -> void:
 	var gate_run := RUNS / 2
 	for k in RUNS:
@@ -232,42 +244,46 @@ func _wall_run(a: Vector3, b: Vector3, has_gate: bool) -> void:
 		_box(Vector3(back.x, _base + WALL_H + 0.15, back.z), Vector3(step + 0.1, 0.3, WALL_THICK + 0.4), yaw, _floor_mat)
 		_put("Wall_Battlements", Vector3(ctr.x, _base + WALL_H, ctr.z), yaw)
 
+const TOWER_HT := 10.0   # solid round tower, clearly taller than the 7 m wall
+const TOWER_RAD := 4.6
+
 func _build_towers() -> void:
 	for k in RUNS + 1:
-		_hex_tower(_arc_pt(_tower_angle(k)))
+		_round_tower(_arc_pt(_tower_angle(k)))
 
-# Hex drum from 6 Courtine panels (chord 6 at R 6) + solid core + walk cap +
-# a matching Wall_Battlements ring. Platform is at wall-walk height (entered
-# straight off the wall — no separate tower stair).
-func _hex_tower(centre: Vector3) -> void:
-	var core := CylinderMesh.new()
-	core.top_radius = TOWER_R * 0.9
-	core.bottom_radius = TOWER_R * 0.9
-	core.height = WALL_H
+# Solid brick cylinder = a genuinely round tower, taller than the wall, with an
+# even merlon crown and a door onto the wall-walk.
+func _round_tower(centre: Vector3) -> void:
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = TOWER_RAD
+	cyl.bottom_radius = TOWER_RAD
+	cyl.height = TOWER_HT
 	var mi := MeshInstance3D.new()
-	mi.mesh = core
+	mi.mesh = cyl
 	mi.material_override = _brick_tri
-	mi.position = Vector3(centre.x, _base + WALL_H * 0.5, centre.z)
+	mi.position = Vector3(centre.x, _base + TOWER_HT * 0.5, centre.z)
 	add_child(mi)
+	# platform cap
 	var cap := CylinderMesh.new()
-	cap.top_radius = TOWER_R
-	cap.bottom_radius = TOWER_R
+	cap.top_radius = TOWER_RAD
+	cap.bottom_radius = TOWER_RAD
 	cap.height = 0.3
 	var ci := MeshInstance3D.new()
 	ci.mesh = cap
 	ci.material_override = _floor_mat
-	ci.position = Vector3(centre.x, _base + WALL_H + 0.15, centre.z)
+	ci.position = Vector3(centre.x, _base + TOWER_HT + 0.15, centre.z)
 	add_child(ci)
-	for i in 6:
-		var a0 := TAU * float(i) / 6.0
-		var a1 := TAU * float(i + 1) / 6.0
-		var p0 := Vector3(centre.x + TOWER_R * cos(a0), _base, centre.z + TOWER_R * sin(a0))
-		var p1 := Vector3(centre.x + TOWER_R * cos(a1), _base, centre.z + TOWER_R * sin(a1))
-		var dir := (p1 - p0).normalized()
-		var yaw := atan2(-dir.z, dir.x)
-		_put("Courtine_Wall", p0, yaw)
-		var mid := (p0 + p1) * 0.5
-		_put("Wall_Battlements", Vector3(mid.x, _base + WALL_H, mid.z), yaw)
+	# even merlon crown around the rim
+	var n: int = maxi(12, int(TAU * TOWER_RAD / 1.8))
+	for i in n:
+		if i % 2 != 0:
+			continue
+		var a := TAU * float(i) / n
+		var p := Vector3(centre.x + TOWER_RAD * cos(a), _base + TOWER_HT + 0.55, centre.z + TOWER_RAD * sin(a))
+		_box(p, Vector3(1.0, 1.1, 0.7), -a, _brick_tri)
+	# door onto the wall-walk (courtyard side)
+	var inw := _inward(centre)
+	_box(Vector3(centre.x + inw.x * TOWER_RAD, _base + WALL_H - 1.0, centre.z + inw.z * TOWER_RAD), Vector3(1.6, 2.4, 0.6), atan2(-inw.z, inw.x), _dark)
 
 func _build_stairs() -> void:
 	var gate_run := RUNS / 2
@@ -276,10 +292,11 @@ func _build_stairs() -> void:
 			continue
 		var mid := (_arc_pt(_tower_angle(k)) + _arc_pt(_tower_angle(k + 1))) * 0.5
 		var inw := _inward(mid)
-		# kit Stairs piece (6x6x6, climbs 6 m), seated on the plateau against the wall
-		var yaw := atan2(-inw.z, inw.x)
-		var pos := Vector3(mid.x + inw.x * (WALL_THICK + 3.0), _base, mid.z + inw.z * (WALL_THICK + 3.0))
-		_put("Stairs", pos, yaw)
+		# kit Stairs piece seated on the plateau, climbing toward the wall-walk,
+		# stretched along its run for a gentler slope
+		var yaw := atan2(-inw.z, inw.x) + PI
+		var pos := Vector3(mid.x + inw.x * (WALL_THICK + 4.5), _base, mid.z + inw.z * (WALL_THICK + 4.5))
+		_put_s("Stairs", pos, yaw, Vector3(1.0, 1.0, 1.6))
 
 func _place_capsule() -> void:
 	var mesh := CapsuleMesh.new(); mesh.radius = 0.3; mesh.height = 1.8
