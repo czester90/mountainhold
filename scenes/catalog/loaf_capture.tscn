@@ -1,0 +1,4 @@
+[gd_scene load_steps=2 format=3 uid="uid://b0mfloafcap"]
+[ext_resource type="Script" path="res://scripts/editor/capture_loaf.gd" id="1"]
+[node name="LoafCapture" type="Node3D"]
+script = ExtResource("1")
