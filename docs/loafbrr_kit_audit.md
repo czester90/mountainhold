@@ -76,3 +76,22 @@ at runtime via `GLTFDocument` to sidestep a headless-import quirk; brick materia
 - **D.** Gate from the arc/tunnel + portcullis pieces; bridge causeway.
 - **E.** Stairs_Wall flights, one per curtain span, hugging the wall.
 - **F.** Keep the horseshoe terrain enclosure.
+
+## Assembly findings (validated on a piece test)
+
+How the pieces actually snap (from reading the author's example scene + a wall/
+tower/stair assembly test):
+
+- **Wall** = `Courtine_Wall` (6 m panel) with `Wall_Battlements` (6 m) on the top
+  edge as the crenellated parapet + a floor for the walk. Do NOT hand-build
+  merlons from boxes — the kit battlement piece aligns 1:1 with the panel.
+- **Battlements** are the `Wall_Battlements` / `Wall_Battlements_Corner_*` pieces,
+  sat on the wall/tower top edge. They are 6 m, so they only look right on a 6 m
+  grid (a hexagon of radius 6 has chord 6 → they fit a hex tower with no overhang).
+- **Stairs** = the kit `Stairs` piece (6×6×6, solid steps) placed seated on the
+  ground in a grid cell, climbing 6 m to the wall-walk. Not a floating box ramp.
+- **Round tower**: 4× `*_Corner_Round` do NOT close into a drum by simple
+  90° rotation about the shared centre; a hexagon of 6 `Courtine_Wall` panels
+  (radius 6) is the reliable round-ish tower here.
+- **Tower access** is from the wall-walk (platform at walk height) — no internal
+  tower stair.
