@@ -244,26 +244,27 @@ func _wall_run(a: Vector3, b: Vector3, has_gate: bool) -> void:
 		_box(Vector3(back.x, _base + WALL_H + 0.15, back.z), Vector3(step + 0.1, 0.3, WALL_THICK + 0.4), yaw, _floor_mat)
 		_put("Wall_Battlements", Vector3(ctr.x, _base + WALL_H, ctr.z), yaw)
 
-const TOWER_HT := 10.0   # solid round tower, clearly taller than the 7 m wall
 const TOWER_RAD := 4.6
+const TOWER_PARAPET := 2.2   # crenellation height above the walk (makes it taller than the wall)
 
 func _build_towers() -> void:
 	for k in RUNS + 1:
 		_round_tower(_arc_pt(_tower_angle(k)))
 
-# Solid brick cylinder = a genuinely round tower, taller than the wall, with an
-# even merlon crown and a door onto the wall-walk.
+# Round brick drum whose WALKABLE platform is at the wall-walk level (6 m) so a
+# defender walks straight off the wall onto the tower; a tall merlon ring on the
+# OUTER (field) arc makes it read taller than the wall, open toward the courtyard.
 func _round_tower(centre: Vector3) -> void:
 	var cyl := CylinderMesh.new()
 	cyl.top_radius = TOWER_RAD
 	cyl.bottom_radius = TOWER_RAD
-	cyl.height = TOWER_HT
+	cyl.height = WALL_H
 	var mi := MeshInstance3D.new()
 	mi.mesh = cyl
 	mi.material_override = _brick_tri
-	mi.position = Vector3(centre.x, _base + TOWER_HT * 0.5, centre.z)
+	mi.position = Vector3(centre.x, _base + WALL_H * 0.5, centre.z)
 	add_child(mi)
-	# platform cap
+	# platform cap at wall-walk height
 	var cap := CylinderMesh.new()
 	cap.top_radius = TOWER_RAD
 	cap.bottom_radius = TOWER_RAD
@@ -271,19 +272,20 @@ func _round_tower(centre: Vector3) -> void:
 	var ci := MeshInstance3D.new()
 	ci.mesh = cap
 	ci.material_override = _floor_mat
-	ci.position = Vector3(centre.x, _base + TOWER_HT + 0.15, centre.z)
+	ci.position = Vector3(centre.x, _base + WALL_H + 0.15, centre.z)
 	add_child(ci)
-	# even merlon crown around the rim
-	var n: int = maxi(12, int(TAU * TOWER_RAD / 1.8))
+	# merlon ring on the field-facing arc only (open toward the courtyard = walk entry)
+	var outward := -_inward(centre)
+	var n := 18
 	for i in n:
+		var a := TAU * float(i) / n
+		var rim := Vector3(cos(a), 0, sin(a))
+		if rim.dot(outward) < -0.35:
+			continue      # leave the courtyard-facing arc open so the walk flows on
 		if i % 2 != 0:
 			continue
-		var a := TAU * float(i) / n
-		var p := Vector3(centre.x + TOWER_RAD * cos(a), _base + TOWER_HT + 0.55, centre.z + TOWER_RAD * sin(a))
-		_box(p, Vector3(1.0, 1.1, 0.7), -a, _brick_tri)
-	# door onto the wall-walk (courtyard side)
-	var inw := _inward(centre)
-	_box(Vector3(centre.x + inw.x * TOWER_RAD, _base + WALL_H - 1.0, centre.z + inw.z * TOWER_RAD), Vector3(1.6, 2.4, 0.6), atan2(-inw.z, inw.x), _dark)
+		var p := Vector3(centre.x + TOWER_RAD * cos(a), _base + WALL_H + TOWER_PARAPET * 0.5, centre.z + TOWER_RAD * sin(a))
+		_box(p, Vector3(1.0, TOWER_PARAPET, 0.7), -a, _brick_tri)
 
 func _build_stairs() -> void:
 	var gate_run := RUNS / 2
