@@ -155,7 +155,12 @@ func _sculpt_terrain() -> void:
 
 # --- fortress -------------------------------------------------------------
 
-const RUNS := 3          # straight wall runs; RUNS+1 towers at the joints
+const RUNS := 4          # straight wall runs; RUNS+1 towers at the joints
+const TOWER_R := 4.0
+const TOWER_H := 8.5     # a bit taller than the 6 m wall
+const CORE_D := 2.8      # wall body depth (thickness)
+
+var _core_mat: StandardMaterial3D
 
 func _arc_pt(a: float) -> Vector3:
 	return Vector3(CX + WALL_R * cos(a), _base, CZ + WALL_R * sin(a))
@@ -169,60 +174,95 @@ func _inward(p: Vector3) -> Vector3:
 func _tower_angle(k: int) -> float:
 	return lerp(PI - OPEN_HALF, PI + OPEN_HALF, float(k) / float(RUNS))
 
+func _box(centre: Vector3, size: Vector3, yaw: float, mat: StandardMaterial3D) -> void:
+	var b := BoxMesh.new()
+	b.size = size
+	var mi := MeshInstance3D.new()
+	mi.mesh = b
+	mi.material_override = mat
+	mi.transform = Transform3D(Basis(Vector3.UP, yaw), centre)
+	add_child(mi)
+
+func _put_s(mesh_name: String, pos: Vector3, yaw: float, scale: Vector3) -> void:
+	var mesh = _meshes.get(mesh_name)
+	if mesh == null:
+		return
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	for i in mesh.get_surface_count():
+		var sm = mesh.surface_get_material(i)
+		mi.set_surface_override_material(i, _mats.get(sm.resource_name if sm else "", _mats["BrickWall"]))
+	mi.transform = Transform3D(Basis(Vector3.UP, yaw).scaled(scale), pos)
+	add_child(mi)
+
 func _build_wall() -> void:
-	# straight runs between tower joints; towers hide the bends so each run's
-	# walk + battlements stay aligned (no zig-zag).
+	if _core_mat == null:
+		_core_mat = _brick("BrickWall", "BrickWall")
+		_core_mat.uv1_triplanar = true
+		_core_mat.uv1_world_triplanar = true
+		_core_mat.uv1_scale = Vector3(0.16, 0.16, 0.16)
 	var gate_run := RUNS / 2
 	for k in RUNS:
 		_wall_run(_arc_pt(_tower_angle(k)), _arc_pt(_tower_angle(k + 1)), k == gate_run)
 
 func _wall_run(a: Vector3, b: Vector3, has_gate: bool) -> void:
-	var span := b - a
+	# inset the run so it meets the tower rims instead of running into them
+	var full := (b - a).normalized()
+	var a2 := a + full * (TOWER_R + 0.5)
+	var b2 := b - full * (TOWER_R + 0.5)
+	var span := b2 - a2
 	var length := span.length()
+	if length < 1.0:
+		return
 	var dir := span / length
 	var yaw := atan2(-dir.z, dir.x)
-	var n: int = int(ceil(length / MODULE))
+	var n: int = maxi(1, int(round(length / MODULE)))
 	var step := length / n
 	var gate_j := n / 2 if has_gate else -1
 	for j in n:
-		var base_p := a + dir * step * j
-		var centre_p := a + dir * step * (float(j) + 0.5)
-		var inw := _inward(centre_p)
+		var base_p := a2 + dir * step * j
+		var ctr := a2 + dir * step * (float(j) + 0.5)
+		var inw := _inward(ctr)
+		var core_c := Vector3(ctr.x + inw.x * (CORE_D * 0.5), _base + MODULE * 0.5, ctr.z + inw.z * (CORE_D * 0.5))
 		if j == gate_j:
-			_put("Courtine_Door_Arch", base_p, yaw)
+			_put("Courtine_Door_Arch", base_p, yaw)                       # arched opening, no core (passable)
 		else:
-			_put("Courtine_Wall", base_p, yaw)
-		_put("Wall_Battlements", centre_p + _up(), yaw)
-		_put("Wall_Floor", centre_p + inw * 2.6 + _up(), yaw)
+			_put("Courtine_Wall", base_p, yaw)                            # detailed outer facing
+			_box(core_c, Vector3(step + 0.3, MODULE, CORE_D), yaw, _core_mat)  # solid thick body
+		_put("Wall_Floor", Vector3(core_c.x, _base + MODULE, core_c.z), yaw)   # visible wall-walk
+		_put("Wall_Battlements", Vector3(ctr.x, _base + MODULE, ctr.z), yaw)   # outer parapet
 
 func _build_towers() -> void:
 	for k in RUNS + 1:
 		_drum(_arc_pt(_tower_angle(k)))
 
 func _drum(centre: Vector3) -> void:
-	# hexagonal drum from 6 Courtine_Wall panels (chord = 6 m at R = 6), ~12 m dia,
-	# battlement ring on top, 2x2 floor cap.
-	var rt := 6.0
-	var panels := 6
-	for i in panels:
-		var a := TAU * float(i) / panels
-		var an := TAU * float(i + 1) / panels
-		var p := Vector3(centre.x + rt * cos(a), _base, centre.z + rt * sin(a))
-		var pn := Vector3(centre.x + rt * cos(an), _base, centre.z + rt * sin(an))
-		var dir := (pn - p).normalized()
-		var yaw := atan2(-dir.z, dir.x)
-		_put("Courtine_Wall", p, yaw)
-		_put("Wall_Battlements", (p + pn) * 0.5 + _up(), yaw)
-	for sx in [-3.0, 3.0]:
-		for sz in [-3.0, 3.0]:
-			_put("Wall_Floor", centre + Vector3(sx, MODULE, sz), 0.0)
+	# small solid round tower, a little taller than the wall, battlement ring + cap
+	var cyl := CylinderMesh.new()
+	cyl.top_radius = TOWER_R
+	cyl.bottom_radius = TOWER_R
+	cyl.height = TOWER_H + 2.0
+	var mi := MeshInstance3D.new()
+	mi.mesh = cyl
+	mi.material_override = _core_mat
+	mi.position = Vector3(centre.x, _base + TOWER_H - (TOWER_H + 2.0) * 0.5, centre.z)
+	add_child(mi)
+	_put("Wall_Floor", Vector3(centre.x, _base + TOWER_H, centre.z), 0.0)
+	var ring := 8
+	for i in ring:
+		var a := TAU * float(i) / ring
+		var p := Vector3(centre.x + TOWER_R * cos(a), _base + TOWER_H, centre.z + TOWER_R * sin(a))
+		var an := TAU * float(i + 1) / ring
+		var pn := Vector3(centre.x + TOWER_R * cos(an), _base, centre.z + TOWER_R * sin(an))
+		var dir := Vector3(pn.x - p.x, 0, pn.z - p.z).normalized()
+		_put("Wall_Battlements", p, atan2(-dir.z, dir.x))
 
 func _build_stairs() -> void:
 	for k in RUNS:
 		var mid := (_arc_pt(_tower_angle(k)) + _arc_pt(_tower_angle(k + 1))) * 0.5
 		var inw := _inward(mid)
 		var yaw := atan2(-inw.z, inw.x) + PI
-		_put("Stairs", mid + inw * 5.0, yaw)
+		_put_s("Stairs", mid + inw * 5.0, yaw, Vector3(0.28, 1.0, 1.0))   # narrow flight
 
 func _place_capsule() -> void:
 	var mesh := CapsuleMesh.new(); mesh.radius = 0.3; mesh.height = 1.8
