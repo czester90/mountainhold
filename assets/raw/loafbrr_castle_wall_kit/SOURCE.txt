@@ -1,0 +1,3 @@
+Loafbrr "Castle Wall Kit" — https://loafbrr.itch.io/castle-wall-kit
+Licence: CC0 1.0 (public domain). 116 pieces, 6 m module, PBR brick (BaseColor/Normal/MRAO).
+Only gltf/ + textures/ copied (their Godot scenes/materials use kit-root res:// paths); we load the gltf directly and build materials in code.
