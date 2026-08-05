@@ -113,11 +113,11 @@ Observed warnings and issues:
 - Problem: Systems need shared names for wall front, towers, gate, keep, ladder zones, archer bands, staging horizon, and assault sectors.
 - Affected files: `scripts/castle/castle_model.gd`, `scripts/castle/fortress_generator.gd`, `scenes/play.tscn`, possible new resource/script for fortress regions.
 - Expected result: AI queries semantic regions instead of relying on raw coordinates.
-- Implementation notes: Add read-only region data first; do not migrate all consumers immediately.
+- Implementation notes: Added read-only named regions to `CastleModel` and registered generated `wall_front`, `staging_horizon`, `ladder_zone`, `archer_band`, `gate`, and `keep` regions from fortress geometry/slots. Consumers can now migrate off raw coordinates incrementally.
 - Dependencies: P0-006.
 - Risk: medium.
 - Test strategy: fortress generation tests validating required markers.
-- Status: TODO.
+- Status: DONE.
 
 ### P0-008 — Formalize Fortress Navigation Graph
 

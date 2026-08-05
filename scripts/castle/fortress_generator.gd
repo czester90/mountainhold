@@ -197,6 +197,7 @@ func build() -> void:
 	_place_stair_tower()
 	_place_cave()
 	_rebuild_navigation_region()
+	_register_fortress_regions()
 	print("fortress: base=%.1f, %d modules" % [_base, gen().get_child_count()])
 
 # Cave hall in the mountain behind the keep — the player walks through the keep's rear gate into
@@ -334,6 +335,28 @@ func _register_wall_ladder_slots(wall: CastleModule, wall_defn: WallDefinition, 
 		var face := wall.global_transform * Vector3(x, wall_defn.height * 0.45, face_z)
 		_register_ladder_slot(wall, foot, top, normal, priority)
 		_register_navigation_strip(foot, face)
+
+func _register_fortress_regions() -> void:
+	var model := _ensure_castle_model()
+	var ladder_slots: Array = model.call("wall_ladder_slots") if model.has_method("wall_ladder_slots") else []
+	var min_z := CZ - WALL_R
+	var max_z := CZ + WALL_R
+	var min_x := CX - WALL_R
+	for slot in ladder_slots:
+		if not slot is Node3D or not is_instance_valid(slot):
+			continue
+		var foot: Vector3 = slot.get_meta("foot", (slot as Node3D).global_position)
+		min_z = minf(min_z, foot.z)
+		max_z = maxf(max_z, foot.z)
+		min_x = minf(min_x, foot.x)
+	var wall_width := maxf(10.0, max_z - min_z)
+	var wall_front := Vector3(min_x, _base, CZ)
+	model.call("register_region", &"wall_front", wall_front, wall_width * 0.5, Vector3.LEFT, {"z_min": min_z, "z_max": max_z})
+	model.call("register_region", &"staging_horizon", wall_front + Vector3.LEFT * 42.0, wall_width * 0.65, Vector3.RIGHT, {"z_min": min_z - 8.0, "z_max": max_z + 8.0})
+	model.call("register_region", &"ladder_zone", wall_front, wall_width * 0.55, Vector3.LEFT, {"slots": ladder_slots.size()})
+	model.call("register_region", &"archer_band", Vector3(CX - WALL_R + 2.0, _base + wall_def.height, CZ), wall_width * 0.5, Vector3.LEFT, {"height": wall_def.height})
+	model.call("register_region", &"gate", Vector3(CX - WALL_R, _base, CZ), 10.0, Vector3.LEFT)
+	model.call("register_region", &"keep", Vector3(KEEP_X, _base + keep_def.height, CZ), maxf(keep_def.width, keep_def.depth) * 0.5, Vector3.LEFT)
 
 func _register_navigation_strip(a: Vector3, b: Vector3) -> void:
 	var flat := b - a

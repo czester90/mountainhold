@@ -579,3 +579,35 @@ Behavior changes:
 Remaining risk:
 
 - Full-scene ladder/wall smoke coverage is still limited by the broader `siege_smoke_test.gd` hang/crash baseline.
+
+## 2026-08-05 — P0-007 Define Fortress Markers And Regions
+
+Status: DONE for read-only semantic regions.
+
+Files changed:
+
+- `scripts/castle/castle_model.gd`
+- `scripts/castle/fortress_generator.gd`
+- `test/fortress_navigation_test.gd`
+- `docs/refactoring_backlog.md`
+- `docs/refactoring_log.md`
+
+Summary:
+
+- Added named `CastleModel` regions with center, radius, normal, and metadata.
+- Registered generated regions for `wall_front`, `staging_horizon`, `ladder_zone`, `archer_band`, `gate`, and `keep`.
+- Derived wall/horizon width from generated ladder slots so future assault distribution can use semantic fortress data.
+- Added fortress generation coverage asserting regions exist in the play scene.
+- Marked P0-007 complete. P1-008 assault sectors is now unblocked.
+
+Validation:
+
+- `make test-target TEST=res://test/fortress_navigation_test.gd` passed: 1 test case, 0 failures.
+
+Behavior changes:
+
+- None intended. This adds read-only data for future AI/spawn routing.
+
+Remaining risk:
+
+- Wave spawning still uses its existing lane logic until P1-008 migrates it to sectors.

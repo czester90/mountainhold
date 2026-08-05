@@ -6,6 +6,7 @@ var ladder_slots: Array[Node3D] = []
 var navigation_edges: Array[Node] = []
 var navigation_links: Array[NavigationLink3D] = []
 var navigation_regions: Array[NavigationRegion3D] = []
+var regions: Dictionary = {}
 
 func _ready() -> void:
 	add_to_group("castle_model")
@@ -16,6 +17,7 @@ func reset() -> void:
 	navigation_edges.clear()
 	navigation_links.clear()
 	navigation_regions.clear()
+	regions.clear()
 
 func register_tactical_slot(slot: Node3D) -> void:
 	if slot == null or tactical_slots.has(slot):
@@ -43,6 +45,21 @@ func register_navigation_region(region: NavigationRegion3D) -> void:
 	if region == null or navigation_regions.has(region):
 		return
 	navigation_regions.append(region)
+
+func register_region(region_name: StringName, center: Vector3, radius: float, normal: Vector3 = Vector3.ZERO, metadata: Dictionary = {}) -> void:
+	regions[region_name] = {
+		"name": region_name,
+		"center": center,
+		"radius": radius,
+		"normal": normal.normalized() if normal.length() > 0.01 else Vector3.ZERO,
+		"metadata": metadata,
+	}
+
+func region(region_name: StringName) -> Dictionary:
+	return regions.get(region_name, {})
+
+func region_names() -> Array:
+	return regions.keys()
 
 func slots_for_kind(slot_kind: StringName) -> Array[Node3D]:
 	var result: Array[Node3D] = []
@@ -78,4 +95,5 @@ func summary() -> Dictionary:
 		"navigation_edges": navigation_edges.size(),
 		"navigation_links": navigation_links.size(),
 		"navigation_regions": navigation_regions.size(),
+		"regions": regions.size(),
 	}
