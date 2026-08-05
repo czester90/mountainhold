@@ -306,7 +306,7 @@ func _best_active_ladder() -> Node:
 			return selected
 	var best: Node = null
 	var best_score := INF
-	for node in get_tree().get_nodes_in_group("siege_ladder_active"):
+	for node in _active_ladders():
 		if not is_instance_valid(node) or not node is SiegeLadder:
 			continue
 		var active_ladder: SiegeLadder = node as SiegeLadder
@@ -1065,6 +1065,12 @@ func _active_enemies() -> Array:
 	if registry != null and registry.has_method("active_enemies"):
 		return registry.call("active_enemies")
 	return get_tree().get_nodes_in_group("enemy")
+
+func _active_ladders() -> Array:
+	var registry := _combat_registry()
+	if registry != null and registry.has_method("active_ladders"):
+		return registry.call("active_ladders")
+	return get_tree().get_nodes_in_group("siege_ladder_active")
 
 func _active_player() -> Node:
 	var registry := _combat_registry()

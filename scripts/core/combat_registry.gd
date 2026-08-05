@@ -71,6 +71,14 @@ func active_ladders() -> Array[Node]:
 	_sync_once_per_frame()
 	return _ladders.duplicate()
 
+func active_enemies_in_group(group_name: StringName) -> Array[Node]:
+	_sync_once_per_frame()
+	var result: Array[Node] = []
+	for enemy in _enemies:
+		if is_instance_valid(enemy) and enemy.is_in_group(group_name):
+			result.append(enemy)
+	return result
+
 func active_enemies_near(point: Vector3, radius: float) -> Array[Node]:
 	_sync_once_per_frame()
 	_ensure_spatial_grid()

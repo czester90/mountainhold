@@ -185,7 +185,7 @@ func _start_deploying_ladder() -> void:
 	_deploying_ladder = true
 	_set_ai_state(EnemyAIState.LADDER_DEPLOYING)
 	_deploy_t = 0.0
-	for node in get_tree().get_nodes_in_group("ladder_carrier"):
+	for node in _active_ladder_carriers():
 		if node is LadderOrcEnemy and int(node.get_meta("crew_id", -1)) == _crew_id:
 			var carrier := node as LadderOrcEnemy
 			carrier._deploying_ladder = true
@@ -204,7 +204,7 @@ func _continue_deploying_ladder(delta: float) -> void:
 		_request_ladder_help()
 		return
 	_deploy_t += delta
-	for node in get_tree().get_nodes_in_group("ladder_carrier"):
+	for node in _active_ladder_carriers():
 		if node is LadderOrcEnemy and int(node.get_meta("crew_id", -1)) == _crew_id:
 			(node as LadderOrcEnemy)._deploy_t = _deploy_t
 	if _deploy_t < _deploy_duration_required():
@@ -212,7 +212,7 @@ func _continue_deploying_ladder(delta: float) -> void:
 	_finish_deploying_ladder()
 
 func _cancel_deploying_ladder() -> void:
-	for node in get_tree().get_nodes_in_group("ladder_carrier"):
+	for node in _active_ladder_carriers():
 		if node is LadderOrcEnemy and int(node.get_meta("crew_id", -1)) == _crew_id:
 			var carrier := node as LadderOrcEnemy
 			carrier._deploying_ladder = false
@@ -222,7 +222,7 @@ func _cancel_deploying_ladder() -> void:
 func _finish_deploying_ladder() -> void:
 	_ladder_deployed = true
 	_spawn_siege_ladder()
-	for node in get_tree().get_nodes_in_group("ladder_carrier"):
+	for node in _active_ladder_carriers():
 		if node is LadderOrcEnemy and int(node.get_meta("crew_id", -1)) == _crew_id:
 			var carrier := node as LadderOrcEnemy
 			if carrier._done:
@@ -235,7 +235,7 @@ func _finish_deploying_ladder() -> void:
 			carrier.remove_from_group("ladder_carrier")
 			carrier._ladder_prop = _ladder_prop
 			carrier._wait_for_ladder_queue(_ladder_prop)
-	for node in get_tree().get_nodes_in_group("ladder_helper"):
+	for node in _active_ladder_helpers():
 		if node is LadderOrcEnemy and int(node.get_meta("helping_crew_id", -1)) == _crew_id:
 			var helper := node as LadderOrcEnemy
 			helper._ladder_deployed = true
@@ -251,7 +251,7 @@ func _ready_carriers_near_deploy_zone() -> int:
 	var deploy_target := _ladder_foot
 	if path.size() > 0:
 		deploy_target = path[mini(_wp, path.size() - 1)]
-	for node in get_tree().get_nodes_in_group("ladder_carrier"):
+	for node in _active_ladder_carriers():
 		if not node is LadderOrcEnemy or not is_instance_valid(node):
 			continue
 		var carrier := node as LadderOrcEnemy
@@ -263,7 +263,7 @@ func _ready_carriers_near_deploy_zone() -> int:
 			count += 1
 		elif carrier.global_position.distance_to(global_position) <= DEPLOY_WORK_RADIUS:
 			count += 1
-	for node in get_tree().get_nodes_in_group("ladder_helper"):
+	for node in _active_ladder_helpers():
 		if not node is Node3D or not is_instance_valid(node):
 			continue
 		if int(node.get_meta("helping_crew_id", -1)) != _crew_id:
@@ -275,12 +275,12 @@ func _ready_carriers_near_deploy_zone() -> int:
 func _request_ladder_help() -> void:
 	if _living_carriers_for_crew() >= MIN_CARRIERS_TO_DEPLOY:
 		return
-	for node in get_tree().get_nodes_in_group("ladder_helper"):
+	for node in _active_ladder_helpers():
 		if node is LadderOrcEnemy and int(node.get_meta("helping_crew_id", -1)) == _crew_id:
 			return
 	var best: LadderOrcEnemy = null
 	var best_dist := INF
-	for node in get_tree().get_nodes_in_group("ladder"):
+	for node in _active_ladder_orcs():
 		if not node is LadderOrcEnemy or not is_instance_valid(node):
 			continue
 		var candidate := node as LadderOrcEnemy
@@ -327,7 +327,7 @@ func _update_carrying_speed() -> void:
 
 func _living_carriers_for_crew() -> int:
 	var count := 0
-	for node in get_tree().get_nodes_in_group("ladder_carrier"):
+	for node in _active_ladder_carriers():
 		if not node is LadderOrcEnemy or not is_instance_valid(node):
 			continue
 		var carrier := node as LadderOrcEnemy
@@ -337,7 +337,7 @@ func _living_carriers_for_crew() -> int:
 	return count
 
 func _transfer_ladder_visual_to_partner() -> void:
-	for node in get_tree().get_nodes_in_group("ladder_carrier"):
+	for node in _active_ladder_carriers():
 		if not node is LadderOrcEnemy or not is_instance_valid(node):
 			continue
 		var carrier := node as LadderOrcEnemy
@@ -349,7 +349,7 @@ func _transfer_ladder_visual_to_partner() -> void:
 			return
 
 func _try_join_helped_ladder() -> void:
-	for node in get_tree().get_nodes_in_group("siege_ladder_active"):
+	for node in _active_siege_ladders():
 		if node is SiegeLadder and (node as SiegeLadder).foot.distance_to(_ladder_foot) <= 7.5:
 			_ladder_deployed = true
 			_helping_crew_id = 0
@@ -361,7 +361,7 @@ func _try_join_helped_ladder() -> void:
 func _begin_crew_ladder_climb(delta: float) -> void:
 	var ladder := _ladder_prop
 	if ladder == null or not is_instance_valid(ladder):
-		for node in get_tree().get_nodes_in_group("siege_ladder_active"):
+		for node in _active_siege_ladders():
 			if node is SiegeLadder and (node as SiegeLadder).foot.distance_to(_ladder_foot) <= 7.5:
 				ladder = node
 				_ladder_prop = node as Node3D
@@ -386,7 +386,7 @@ func _begin_crew_ladder_climb(delta: float) -> void:
 func _try_enter_deployed_ladder(delta: float) -> bool:
 	var ladder := _ladder_prop
 	if ladder == null or not is_instance_valid(ladder):
-		for node in get_tree().get_nodes_in_group("siege_ladder_active"):
+		for node in _active_siege_ladders():
 			if node is SiegeLadder and (node as SiegeLadder).foot.distance_to(_ladder_foot) <= 7.5:
 				ladder = node
 				_ladder_prop = node as Node3D
@@ -424,7 +424,7 @@ func _on_traversal_failed(kind: StringName, reason: String) -> void:
 
 func _is_deployment_leader() -> bool:
 	var leader_index := 9999
-	for node in get_tree().get_nodes_in_group("ladder_carrier"):
+	for node in _active_ladder_carriers():
 		if not node is LadderOrcEnemy or not is_instance_valid(node):
 			continue
 		var carrier := node as LadderOrcEnemy
@@ -507,6 +507,27 @@ func _attack_unit(delta: float, defender: Node3D) -> void:
 func _on_attacked(damage: float) -> void:
 	if _attack_target and is_instance_valid(_attack_target) and _attack_target.has_method("take_damage"):
 		_attack_target.take_damage(damage, global_position)
+
+func _active_ladder_carriers() -> Array:
+	return _active_enemies_in_group(&"ladder_carrier")
+
+func _active_ladder_helpers() -> Array:
+	return _active_enemies_in_group(&"ladder_helper")
+
+func _active_ladder_orcs() -> Array:
+	return _active_enemies_in_group(&"ladder")
+
+func _active_enemies_in_group(group_name: StringName) -> Array:
+	var registry := _combat_registry()
+	if registry != null and registry.has_method("active_enemies_in_group"):
+		return registry.call("active_enemies_in_group", group_name)
+	return get_tree().get_nodes_in_group(group_name)
+
+func _active_siege_ladders() -> Array:
+	var registry := _combat_registry()
+	if registry != null and registry.has_method("active_ladders"):
+		return registry.call("active_ladders")
+	return get_tree().get_nodes_in_group("siege_ladder_active")
 
 func ai_debug_snapshot() -> Dictionary:
 	var snapshot := super.ai_debug_snapshot()

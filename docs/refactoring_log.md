@@ -173,3 +173,43 @@ Remaining risk:
 
 - Some tactical decisions still read old booleans/path state directly. Later tasks should migrate decision branches to `EnemyAIState` only after targeted coverage exists.
 - Full `make test` remains blocked by the previously recorded `siege_smoke_test.gd` hang/crash behavior.
+
+## 2026-08-05 — P0-014 Complete Combat Registry Ownership
+
+Status: DONE for current combat hotpaths.
+
+Files changed:
+
+- `scripts/core/combat_registry.gd`
+- `scripts/enemy/enemy.gd`
+- `scripts/enemy/ladder_orc_enemy.gd`
+- `test/combat_registry_test.gd`
+- `docs/refactoring_backlog.md`
+- `docs/refactoring_log.md`
+
+Summary:
+
+- Added `CombatRegistry.active_enemies_in_group(group_name)` so combat code can query state-filtered role groups without broad scene scans.
+- Routed ladder carrier/helper/orc crew loops in `LadderOrcEnemy` through registry-backed helpers while preserving tree-scan fallbacks when no registry exists.
+- Routed base enemy active ladder lookup through `CombatRegistry.active_ladders()` with fallback for isolated scenes/tests.
+- Added a focused registry test proving group-filtered enemy queries exclude staged and invalid-height units.
+- Marked P0-014 complete and selected P1-001 spatial query correctness tests as the next task.
+
+Validation:
+
+- `make test-target TEST=res://test/combat_registry_test.gd` passed: 1 test case, 0 failures.
+- `make test-target TEST=res://test/enemy_test.gd` passed: 12 test cases, 0 failures.
+
+Observed warnings:
+
+- GdUnit remote debugger still attempts invalid port `127.0.0.1:0`.
+- `enemy_test.gd` still reports Godot cleanup/resource leak warnings after successful exit.
+
+Behavior changes:
+
+- None intended. Query sources changed to registry-backed filtered lists; fallback behavior remains for scenes without a registry.
+
+Remaining risk:
+
+- Some non-combat/fortress scans intentionally remain outside P0-014, especially castle slots/model/navigation groups.
+- Full `make test` remains blocked by the previously recorded `siege_smoke_test.gd` hang/crash behavior.

@@ -190,11 +190,11 @@ Observed warnings and issues:
 - Problem: Some targeting/search logic still bypasses `CombatRegistry`, which risks scaling issues and inconsistent staged/dead filtering.
 - Affected files: `scripts/core/combat_registry.gd`, `scripts/characters/targeting_component.gd`, `scripts/ally/defender_targeting.gd`, `scripts/enemy/archer_enemy.gd`, `scripts/enemy/enemy.gd`.
 - Expected result: All common combat queries go through registry APIs with state-aware filters.
-- Implementation notes: Add APIs before replacing direct scans; preserve existing targeting choices.
+- Implementation notes: Added group-filtered enemy registry API and routed ladder crew/ladders hotpaths through registry while keeping tree-scan fallbacks for missing registry/test contexts. Broader non-combat fortress/model scans remain intentionally outside this task.
 - Dependencies: P0-003.
 - Risk: medium.
 - Test strategy: registry unit tests for alive/dead/staged/allied/enemy filters.
-- Status: TODO.
+- Status: DONE.
 
 ### P1-001 — Add Spatial Query Correctness Tests
 
@@ -440,6 +440,6 @@ Observed warnings and issues:
 
 ## First Selected Task
 
-Next implementation task: P0-014 — Complete Combat Registry Ownership.
+Next implementation task: P1-001 — Add Spatial Query Correctness Tests.
 
-Reason: P0-003 now exposes enemy state id/name without changing behavior. P0-014 is the safest next code step for performance: centralize remaining combat queries and keep staged/dead filters consistent before deeper AI scheduling/refactors.
+Reason: P0-014 moved more hotpath combat lookups behind `CombatRegistry`. P1-001 should now lock registry radius/group/staged/dead behavior with focused tests before tuning threat evaluation or AI scheduling.
