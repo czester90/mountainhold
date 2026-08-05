@@ -90,6 +90,7 @@ var _positioning: Node = null
 var _shooting: Node = null
 var _defender_targeting: Node = null
 var _castle_pathfinder: Node = null
+var _decision_scheduler: Node = null
 var _firing_slot: Node3D = null
 var hp: float = 45.0
 var _dead: bool = false
@@ -178,6 +179,13 @@ func _setup_castle_pathfinder() -> void:
 	_castle_pathfinder.name = "CastlePathfinder"
 	add_child(_castle_pathfinder)
 
+func _can_run_decision(key: StringName, interval: float, max_per_frame: int) -> bool:
+	if _decision_scheduler == null or not is_instance_valid(_decision_scheduler):
+		_decision_scheduler = get_tree().get_first_node_in_group("decision_scheduler")
+	if _decision_scheduler != null and _decision_scheduler.has_method("can_run"):
+		return bool(_decision_scheduler.call("can_run", self, key, interval, max_per_frame))
+	return true
+
 func _setup_navigation_agent() -> void:
 	_nav_agent = NavigationAgent3D.new()
 	_nav_agent.name = "NavigationAgent3D"
@@ -256,8 +264,9 @@ func _physics_process(delta: float) -> void:
 		_last_debug_reason = &"retreat"
 		return
 	if _should_refresh_target():
-		_current_target = _acquire()
-		_target_refresh_t = TARGET_REFRESH_INTERVAL + randf_range(0.0, 0.08)
+		if _can_run_decision(&"ally_target_refresh", TARGET_REFRESH_INTERVAL, 12):
+			_current_target = _acquire()
+			_target_refresh_t = TARGET_REFRESH_INTERVAL + randf_range(0.0, 0.08)
 	if _current_target == null:
 		_release_firing_slot()
 		_last_debug_reason = &"no_target"

@@ -223,11 +223,11 @@ Observed warnings and issues:
 - Problem: Hundreds of actors cannot all run targeting/path decisions every frame.
 - Affected files: `scripts/enemy/**`, `scripts/ally/**`, `scripts/core/combat_registry.gd`.
 - Expected result: AI decisions are staggered and capped per frame while movement remains smooth.
-- Implementation notes: Use per-agent intervals and frame budgets; avoid global pauses that make units feel dumb.
+- Implementation notes: Added scene-level `DecisionScheduler` with per-key frame caps and per-owner intervals. Routed allied archer target refresh and enemy separation refresh through it while preserving fallback behavior when no scheduler exists.
 - Dependencies: P0-003, P0-004, P0-014.
 - Risk: medium.
 - Test strategy: performance probe and target acquisition latency checks.
-- Status: TODO.
+- Status: DONE.
 
 ### P1-004 — Formalize Ladder State Machine
 

@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3 uid="uid://cplay0mtnhld12"]
+[gd_scene load_steps=12 format=3 uid="uid://cplay0mtnhld12"]
 
 [ext_resource type="PackedScene" path="res://scenes/castle/fortress.tscn" id="1"]
 [ext_resource type="PackedScene" path="res://scenes/player/fps_bow_player.tscn" id="2"]
@@ -11,6 +11,7 @@
 [ext_resource type="Script" path="res://scripts/ui/developer_panel.gd" id="9"]
 [ext_resource type="Script" path="res://scripts/ally/defender_orders.gd" id="10"]
 [ext_resource type="Script" path="res://scripts/core/combat_registry.gd" id="11"]
+[ext_resource type="Script" path="res://scripts/core/decision_scheduler.gd" id="12"]
 
 [node name="Play" type="Node3D"]
 
@@ -22,6 +23,10 @@ start_yaw = 1.5708
 
 [node name="CombatRegistry" type="Node" parent="."]
 script = ExtResource("11")
+
+[node name="DecisionScheduler" type="Node" parent="."]
+script = ExtResource("12")
+default_max_per_frame = 48
 
 [node name="WaveSpawner" type="Node3D" parent="."]
 script = ExtResource("3")

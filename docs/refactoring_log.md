@@ -287,3 +287,42 @@ Remaining risk:
 
 - `TargetingComponent` and `ArcherEnemy` still have local scoring loops; migrate them after this helper is stable.
 - Full `make test` remains blocked by the previously recorded `siege_smoke_test.gd` hang/crash behavior.
+
+## 2026-08-05 — P1-003 Add Decision Scheduling Budgets
+
+Status: DONE for first hotpaths.
+
+Files changed:
+
+- `scripts/core/decision_scheduler.gd`
+- `scenes/play.tscn`
+- `scripts/ally/ally_archer.gd`
+- `scripts/enemy/enemy.gd`
+- `test/decision_scheduler_test.gd`
+- `docs/refactoring_backlog.md`
+- `docs/refactoring_log.md`
+
+Summary:
+
+- Added a `DecisionScheduler` scene node that caps expensive decisions per frame and tracks per-owner intervals by decision key.
+- Routed allied archer target refresh through the scheduler with a `12` per-frame cap.
+- Routed enemy separation refresh through the scheduler with a `32` per-frame cap.
+- Kept movement and combat continuous: if a unit is denied a decision budget, it keeps using its previous cached target/separation state and retries next physics frame.
+- Preserved fallback behavior for isolated tests/scenes without a scheduler.
+- Marked P1-003 complete. P1-013 performance instrumentation is the next best step to measure remaining targeting/raycast/AI costs before further tuning.
+
+Validation:
+
+- `make test-target TEST=res://test/decision_scheduler_test.gd` passed: 3 test cases, 0 failures.
+- `make test-target TEST=res://test/enemy_test.gd` passed: 12 test cases, 0 failures.
+- `make test-target TEST=res://test/ally_test.gd` passed all 16 test cases, then exited `101` because of the existing Godot cleanup/resource leak issue.
+- `make import` passed with existing duplicate UID, missing UID, asset case mismatch, and cleanup/resource leak warnings.
+
+Behavior changes:
+
+- AI decision spikes are now capped in the main play scene. Units still move every physics frame and reuse cached decisions when over budget.
+
+Remaining risk:
+
+- The scheduler currently gates only allied target refresh and enemy separation refresh. Archer enemy LOS targeting, wall defender acquisition, ladder choice, and path replanning still need measurement before deeper throttling.
+- Full `make test` remains blocked by the previously recorded `siege_smoke_test.gd` hang/crash behavior.
