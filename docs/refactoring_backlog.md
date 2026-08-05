@@ -278,11 +278,11 @@ Observed warnings and issues:
 - Problem: Waves currently look like groups instead of an organized assault across the wall width.
 - Affected files: `scripts/enemy/wave_spawner.gd`, `scripts/enemy/siege_director.gd`, `scripts/castle/castle_model.gd`.
 - Expected result: Spawn/staging/advance points are distributed by named wall sectors.
-- Implementation notes: Build on fortress regions and avoid per-frame sector recomputation.
+- Implementation notes: Added cached assault sectors in `SiegeDirector`; sectors are derived from accessible ladder slots, fall back to fortress regions, and drive ladder reservation plus wide spawn/assault point selection.
 - Dependencies: P0-007.
 - Risk: medium.
 - Test strategy: wave distribution tests and manual horizon visual check.
-- Status: TODO.
+- Status: DONE.
 
 ### P1-009 — Expand Siege Director Responsibilities
 

@@ -611,3 +611,33 @@ Behavior changes:
 Remaining risk:
 
 - Wave spawning still uses its existing lane logic until P1-008 migrates it to sectors.
+
+## P1-008 — Define Assault Sectors
+
+Files changed:
+
+- `scripts/enemy/siege_director.gd`
+- `test/wave_spawner_test.gd`
+- `docs/refactoring_backlog.md`
+- `docs/refactoring_log.md`
+
+Summary:
+
+- Added cached assault sectors owned by `SiegeDirector`.
+- Derived sectors from accessible wall ladder slots, with fortress-region fallback when slots are unavailable.
+- Routed ladder reservations, ladder assault points, and wide spawn points through sector spread order.
+- Added tests for sector creation, wall-width spawn spread, and skipping reserved ladder sectors.
+
+Validation:
+
+- `git diff --check` passed.
+- `make test-target TEST=res://test/wave_spawner_test.gd` passed: 6 test cases, 0 failures.
+- `make import` passed with existing duplicate UID, missing UID, case mismatch, and cleanup warnings.
+
+Behavior changes:
+
+- Waves now use named wall sectors for broad distribution instead of directly sampling ladder slots each time.
+
+Remaining risk:
+
+- Staging visuals still use the spawner's existing horizon point helper until the next wave/director handoff task.

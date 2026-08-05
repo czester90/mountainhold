@@ -3,6 +3,8 @@ extends Node3D
 
 const CollisionLayers := preload("res://scripts/core/collision_layers.gd")
 
+@export var assault_sector_count: int = 8
+
 var spawn_centre: Vector3 = Vector3(248.0, 0.0, 500.0)
 var spawn_spread: Vector3 = Vector3(6.0, 0.0, 30.0)
 var terrain: TerrainModule = null
@@ -13,6 +15,8 @@ var _assault_lane: int = 0
 var _spawn_lane: int = 0
 var _last_valid_slots: int = 0
 var _last_rejected_slots: int = 0
+var _assault_sectors: Array[Dictionary] = []
+var _sectors_dirty: bool = true
 
 func _ready() -> void:
 	add_to_group("siege_director")
@@ -22,33 +26,34 @@ func setup(spawn_center_value: Vector3, spawn_spread_value: Vector3, terrain_mod
 	spawn_spread = spawn_spread_value
 	terrain = terrain_module
 	ground_resolver = resolver
+	_sectors_dirty = true
 
 func reserve_ladder_slot() -> Node3D:
-	var slots := _ladder_slots(true)
-	if slots.is_empty():
-		slots = _ladder_slots(false)
-	if slots.is_empty():
+	var sectors := assault_sectors(true)
+	if sectors.is_empty():
+		sectors = assault_sectors(false)
+	if sectors.is_empty():
 		return null
-	var selected := _slot_by_spread_order(slots, _ladder_lane)
+	var sector := _sector_by_spread_order(sectors, _ladder_lane)
 	_ladder_lane += 1
-	return selected
+	return sector.get("slot", null) as Node3D
 
 func pick_ladder_assault_point() -> Dictionary:
-	var slots := _ladder_slots(false)
-	if slots.is_empty():
+	var sectors := assault_sectors(false)
+	if sectors.is_empty():
 		var normal := Vector3(-1.0, 0.0, 0.0)
 		var z := spawn_centre.z + (22.0 if _assault_lane % 2 == 0 else -22.0)
 		_assault_lane += 1
 		var foot := Vector3(288.0, _ground(288.0, z) + 0.15, z)
 		return {"foot": foot, "approach": foot + normal * 14.0}
-	var slot := _slot_by_spread_order(slots, _assault_lane)
+	var sector := _sector_by_spread_order(sectors, _assault_lane)
 	_assault_lane += 1
-	var normal: Vector3 = slot.get_meta("normal", Vector3(-1.0, 0.0, 0.0))
+	var normal: Vector3 = sector.get("normal", Vector3(-1.0, 0.0, 0.0))
 	if normal.length() < 0.01:
 		normal = Vector3(-1.0, 0.0, 0.0)
 	normal = normal.normalized()
-	var foot: Vector3 = slot.get_meta("foot", slot.global_position)
-	var top: Vector3 = slot.get_meta("top", foot + Vector3.UP * 6.0)
+	var foot: Vector3 = sector.get("foot", spawn_centre)
+	var top: Vector3 = sector.get("top", foot + Vector3.UP * 6.0)
 	var side := normal.cross(Vector3.UP).normalized()
 	if side.length() < 0.01:
 		side = Vector3.FORWARD
@@ -62,14 +67,27 @@ func pick_ladder_assault_point() -> Dictionary:
 	}
 
 func next_wide_spawn_point() -> Vector3:
-	var slots := _ladder_slots(false)
-	if slots.is_empty():
+	var sectors := assault_sectors(false)
+	if sectors.is_empty():
 		return spawn_centre + Vector3(randf_range(-spawn_spread.x, spawn_spread.x), 0.0, randf_range(-spawn_spread.z, spawn_spread.z))
-	var slot := _slot_by_spread_order(slots, _spawn_lane)
+	var sector := _sector_by_spread_order(sectors, _spawn_lane)
 	_spawn_lane += 1
-	var foot: Vector3 = slot.get_meta("foot", slot.global_position)
-	var normal: Vector3 = slot.get_meta("normal", Vector3(-1.0, 0.0, 0.0))
-	return spawn_point_for_ladder_foot(foot, normal) + Vector3(randf_range(-1.8, 1.8), 0.0, randf_range(-1.8, 1.8))
+	var spawn: Vector3 = sector.get("spawn", spawn_centre)
+	return spawn + Vector3(randf_range(-1.8, 1.8), 0.0, randf_range(-1.8, 1.8))
+
+func assault_sectors(require_free_ladder: bool = false) -> Array[Dictionary]:
+	if _sectors_dirty or _assault_sectors.is_empty():
+		_rebuild_assault_sectors()
+	if not require_free_ladder:
+		return _assault_sectors.duplicate(true)
+	var free_sectors: Array[Dictionary] = []
+	for sector in _assault_sectors:
+		var slot := sector.get("slot", null) as Node3D
+		if slot == null or not is_instance_valid(slot):
+			continue
+		if int(slot.get_meta("reserved_by", 0)) == 0:
+			free_sectors.append(sector)
+	return free_sectors
 
 func spawn_point_for_ladder_foot(foot: Vector3, normal: Vector3) -> Vector3:
 	normal.y = 0.0
@@ -109,7 +127,7 @@ func resolved_ladder_landing(top: Vector3, normal: Vector3) -> Vector3:
 	return top
 
 func debug_summary() -> String:
-	return "lanes L:%d A:%d S:%d slots:%d rejected:%d" % [_ladder_lane, _assault_lane, _spawn_lane, _last_valid_slots, _last_rejected_slots]
+	return "lanes L:%d A:%d S:%d sectors:%d slots:%d rejected:%d" % [_ladder_lane, _assault_lane, _spawn_lane, assault_sectors(false).size(), _last_valid_slots, _last_rejected_slots]
 
 func _ladder_slots(require_free: bool) -> Array[Node3D]:
 	var slots: Array[Node3D] = []
@@ -141,6 +159,85 @@ func _ladder_slots(require_free: bool) -> Array[Node3D]:
 	_last_valid_slots = slots.size()
 	return slots
 
+func _rebuild_assault_sectors() -> void:
+	_assault_sectors.clear()
+	var slots := _ladder_slots(false)
+	if not slots.is_empty():
+		var limited_slots := _sample_slots_for_sector_count(slots)
+		for slot_index in limited_slots.size():
+			var slot := limited_slots[slot_index]
+			var normal: Vector3 = slot.get_meta("normal", Vector3(-1.0, 0.0, 0.0))
+			normal.y = 0.0
+			if normal.length() < 0.01:
+				normal = Vector3(-1.0, 0.0, 0.0)
+			normal = normal.normalized()
+			var foot: Vector3 = slot.get_meta("foot", slot.global_position)
+			var top: Vector3 = slot.get_meta("top", foot + Vector3.UP * 6.0)
+			_assault_sectors.append({
+				"index": slot_index,
+				"name": "wall_sector_%02d" % slot_index,
+				"slot": slot,
+				"foot": foot,
+				"top": top,
+				"normal": normal,
+				"spawn": spawn_point_for_ladder_foot(foot, normal),
+				"approach": foot + normal * 18.0,
+				"z_min": foot.z - 4.0,
+				"z_max": foot.z + 4.0,
+			})
+	else:
+		_rebuild_fallback_assault_sectors()
+	_sectors_dirty = false
+
+func _rebuild_fallback_assault_sectors() -> void:
+	var count: int = max(1, assault_sector_count)
+	var center := spawn_centre
+	var radius := maxf(spawn_spread.z, 30.0)
+	var normal := Vector3(-1.0, 0.0, 0.0)
+	var wall_x := spawn_centre.x + 40.0
+	var model: Node = get_tree().get_first_node_in_group("castle_model")
+	if model != null and model.has_method("region"):
+		var wall_region: Dictionary = model.call("region", &"wall_front")
+		var horizon_region: Dictionary = model.call("region", &"staging_horizon")
+		if not wall_region.is_empty():
+			center = wall_region.get("center", center)
+			radius = maxf(float(wall_region.get("radius", radius)), radius)
+			normal = wall_region.get("normal", normal)
+			wall_x = center.x
+		if not horizon_region.is_empty():
+			var horizon_center: Vector3 = horizon_region.get("center", spawn_centre)
+			center.z = horizon_center.z
+	for sector_index in count:
+		var fraction: float = 0.5 if count == 1 else float(sector_index) / float(count - 1)
+		var z: float = center.z - radius + radius * 2.0 * fraction
+		var foot := Vector3(wall_x, _ground(wall_x, z) + 0.15, z)
+		_assault_sectors.append({
+			"index": sector_index,
+			"name": "fallback_sector_%02d" % sector_index,
+			"slot": null,
+			"foot": foot,
+			"top": foot + Vector3.UP * 6.0,
+			"normal": normal.normalized(),
+			"spawn": spawn_point_for_ladder_foot(foot, normal),
+			"approach": foot + normal.normalized() * 18.0,
+			"z_min": z - radius / float(count),
+			"z_max": z + radius / float(count),
+		})
+
+func _sample_slots_for_sector_count(slots: Array[Node3D]) -> Array[Node3D]:
+	var ordered: Array[Node3D] = slots.duplicate()
+	ordered.sort_custom(func(a: Node3D, b: Node3D) -> bool:
+		return a.global_position.z < b.global_position.z
+	)
+	var max_count: int = min(ordered.size(), max(1, assault_sector_count))
+	if ordered.size() <= max_count:
+		return ordered
+	var selected: Array[Node3D] = []
+	for index in max_count:
+		var source_index := int(round(float(index) * float(ordered.size() - 1) / float(max_count - 1)))
+		selected.append(ordered[source_index])
+	return selected
+
 func _slot_by_spread_order(slots: Array[Node3D], lane: int) -> Node3D:
 	if slots.is_empty():
 		return null
@@ -149,6 +246,26 @@ func _slot_by_spread_order(slots: Array[Node3D], lane: int) -> Node3D:
 		return a.global_position.z < b.global_position.z
 	)
 	var spread: Array[Node3D] = []
+	var left := 0
+	var right := ordered.size() - 1
+	while left <= right:
+		spread.append(ordered[left])
+		if right != left:
+			spread.append(ordered[right])
+		left += 1
+		right -= 1
+	return spread[lane % spread.size()]
+
+func _sector_by_spread_order(sectors: Array[Dictionary], lane: int) -> Dictionary:
+	if sectors.is_empty():
+		return {}
+	var ordered: Array[Dictionary] = sectors.duplicate(true)
+	ordered.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		var foot_a: Vector3 = a.get("foot", spawn_centre)
+		var foot_b: Vector3 = b.get("foot", spawn_centre)
+		return foot_a.z < foot_b.z
+	)
+	var spread: Array[Dictionary] = []
 	var left := 0
 	var right := ordered.size() - 1
 	while left <= right:
@@ -238,4 +355,6 @@ func _nearest_physics_ground(point: Vector3) -> Vector3:
 	return ground_resolver.nearest_physics_ground(point) if ground_resolver else Vector3.INF
 
 func _ground_search_offsets() -> Array[Vector2]:
-	return ground_resolver.ground_search_offsets() if ground_resolver else [Vector2.ZERO]
+	if ground_resolver:
+		return ground_resolver.ground_search_offsets()
+	return [Vector2.ZERO] as Array[Vector2]
