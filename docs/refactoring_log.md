@@ -104,3 +104,33 @@ Remaining risk:
 
 - The inventory is manual and should be refreshed after P0-010/P0-007 introduce semantic fortress queries.
 - Full `make test` remains blocked by the previously recorded `siege_smoke_test.gd` hang/crash behavior.
+
+## 2026-08-05 — P0-010 Document Navigation Architecture
+
+Status: DONE.
+
+Files changed:
+
+- `docs/navigation_architecture.md`
+- `docs/refactoring_backlog.md`
+- `docs/refactoring_log.md`
+
+Summary:
+
+- Documented current and target ownership for fortress data, ground validation, tactical assignment, route selection, movement execution, ladder traversal, registry queries, and recovery.
+- Defined navigation contracts for `FortressGenerator`, `CastleModel`, `SiegeDirector`, `WaveSpawner`, `Enemy`, `WallAssaultBrain`, `LadderAssaultBrain`, `SiegeLadder`, `TraversalController`, `UnitLocomotion`, and `CombatRegistry`.
+- Captured current flows for gate/keep assault, wall assault via ladder, ladder crew deployment, and defender movement.
+- Marked P0-010 complete and selected P0-003 explicit enemy state model as the next backlog task.
+
+Validation:
+
+- Reviewed current navigation owners in `CastleModel`, `CastlePathfinder`, `TraversalController`, `UnitLocomotion`, enemy brains, `SiegeDirector`, `WaveSpawner`, and `FortressGenerator`.
+
+Behavior changes:
+
+- None. Documentation only.
+
+Remaining risk:
+
+- The documented target contract still needs code enforcement through P0-003, P0-007, P0-008, P0-011, and P0-013.
+- Full `make test` remains blocked by the previously recorded `siege_smoke_test.gd` hang/crash behavior.

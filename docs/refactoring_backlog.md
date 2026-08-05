@@ -150,7 +150,7 @@ Observed warnings and issues:
 - Dependencies: P0-001.
 - Risk: low.
 - Test strategy: docs-only review against code.
-- Status: TODO.
+- Status: DONE.
 
 ### P0-011 — Consolidate Local Pathfinding API
 
@@ -440,6 +440,6 @@ Observed warnings and issues:
 
 ## First Selected Task
 
-Next implementation task: P0-010 — Document Navigation Architecture.
+Next implementation task: P0-003 — Introduce Explicit Enemy State Model.
 
-Reason: P0-006 identified the hardcoded fortress coordinates/ranges that navigation depends on. P0-010 should now define ownership boundaries before those values move into `CastleModel` queries and tuning resources.
+Reason: P0-010 documented the navigation ownership boundaries. P0-003 can now add an explicit enemy state enum around the existing behavior without mixing strategic assignment, route selection, movement, and ladder traversal.
