@@ -80,6 +80,7 @@ var _avoidance_cache: Vector3 = Vector3.ZERO
 var _avoidance_cache_t: float = 0.0
 var _recovery_count: int = 0
 var _stuck_recovery_count: int = 0
+var _last_recovery_reason: String = "none"
 
 const UNIT_PERSONAL_SPACE := 0.95
 const UNIT_AVOIDANCE_WEIGHT := 0.85
@@ -335,6 +336,7 @@ func _on_traversal_failed(kind: StringName, _reason: String) -> void:
 		return
 	_climbing_ladder = false
 	_ladder_target = null
+	_last_recovery_reason = "ladder_traversal_failed:%s" % _reason
 
 func _fight_on_wall(delta: float) -> void:
 	if _try_settle_after_ladder(delta):
@@ -727,6 +729,7 @@ func _update_stuck_recovery(delta: float, pre: Vector3, dir: Vector3) -> void:
 func _unstick_forward(dir: Vector3) -> void:
 	if dir.length() < 0.01:
 		return
+	_last_recovery_reason = "stuck_unstick"
 	var forward: Vector3 = dir.normalized()
 	var side: Vector3 = Vector3(-forward.z, 0.0, forward.x) * _stuck_side
 	_stuck_side *= -1.0
@@ -835,6 +838,7 @@ func _move_direction(direction: Vector3, delta: float) -> Dictionary:
 # fell through a collision seam -> raycast the real ground under our XZ and snap back onto it
 func _recover_to_ground() -> void:
 	_recovery_count += 1
+	_last_recovery_reason = "ground_recovery"
 	velocity = Vector3.ZERO
 	var from := Vector3(global_position.x, 60.0, global_position.z)
 	var q := PhysicsRayQueryParameters3D.create(from, from + Vector3(0, -120.0, 0))
@@ -850,6 +854,83 @@ func recovery_count() -> int:
 
 func stuck_recovery_count() -> int:
 	return _stuck_recovery_count
+
+func ai_debug_snapshot() -> Dictionary:
+	var objective := _debug_objective()
+	var ladder := _debug_ladder()
+	return {
+		"name": name,
+		"type_id": str(type_id),
+		"state": _debug_state(),
+		"objective": objective,
+		"waypoint": _wp,
+		"path_size": path.size(),
+		"target": target,
+		"attack_target": _atk_what,
+		"unit_target": _debug_node_name(_unit_attack_target),
+		"wall_target": _debug_node_name(_wall_target),
+		"ladder": _debug_node_name(ladder),
+		"ladder_status": _debug_ladder_status(ladder),
+		"wall_brain": wall_assault_debug_summary(),
+		"ladder_brain": ladder_assault_debug_summary(),
+		"stuck_time": _stuck_time,
+		"stuck_recoveries": _stuck_recovery_count,
+		"recoveries": _recovery_count,
+		"last_recovery": _last_recovery_reason,
+		"position": global_position,
+	}
+
+func _debug_state() -> String:
+	if _done:
+		return "dead"
+	if bool(get_meta("staged_waiting", false)):
+		return "staged_waiting"
+	if _climbing_ladder:
+		return "climbing_ladder"
+	if _on_wall:
+		if _unit_attack_target != null and is_instance_valid(_unit_attack_target):
+			return "attacking_wall_unit"
+		return "on_wall"
+	if _attacking:
+		return "attacking_%s" % _atk_what
+	if _wall_assault:
+		return "wall_assault"
+	if _wp == gate_wp and not _gate_open():
+		return "at_gate"
+	if path.is_empty():
+		return "idle_no_path"
+	return "advancing"
+
+func _debug_objective() -> Dictionary:
+	var current_target := Vector3.INF
+	if not path.is_empty():
+		current_target = path[mini(_wp, path.size() - 1)]
+	return {
+		"current": current_target,
+		"wall_pressure": _cached_wall_pressure_point,
+		"wall_settle": _wall_settle_goal,
+		"wall_nav_index": _wall_nav_index,
+		"wall_nav_size": _wall_nav_path.size(),
+	}
+
+func _debug_ladder() -> Node:
+	if _ladder_target != null and is_instance_valid(_ladder_target):
+		return _ladder_target
+	if _cached_active_ladder != null and is_instance_valid(_cached_active_ladder):
+		return _cached_active_ladder
+	return null
+
+func _debug_ladder_status(ladder: Node) -> Dictionary:
+	if ladder == null or not is_instance_valid(ladder):
+		return {}
+	if ladder.has_method("debug_unit_status"):
+		return ladder.call("debug_unit_status", self)
+	if ladder.has_method("debug_summary"):
+		return ladder.call("debug_summary")
+	return {"name": ladder.name}
+
+func _debug_node_name(node: Node) -> String:
+	return node.name if node != null and is_instance_valid(node) else "-"
 
 func wall_assault_debug_summary() -> String:
 	var base: String = _wall_brain.debug_summary() if _wall_brain != null and _wall_brain.has_method("debug_summary") else "no_brain"

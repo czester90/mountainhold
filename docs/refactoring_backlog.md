@@ -62,7 +62,7 @@ Observed warnings and issues:
 - Dependencies: P0-001.
 - Risk: low; poor throttling could hurt performance or clutter output.
 - Test strategy: targeted enemy/ladder tests plus manual run with debug flag enabled.
-- Status: TODO.
+- Status: DONE.
 
 ### P0-003 — Introduce Explicit Enemy State Model
 
@@ -440,6 +440,6 @@ Observed warnings and issues:
 
 ## First Selected Task
 
-Next implementation task: P0-002 — Add Lifecycle And Reservation Diagnostics.
+Next implementation task: P0-006 — Inventory Hardcoded Fortress Data.
 
-Reason: it is the safest next step after baseline and will explain the exact bugs reported in screenshots: enemies standing at ladders, falling after climbing, idling after wall capture, and getting stuck at staging horizon. It gives visibility before changing behavior again.
+Reason: P0-002 now exposes enough runtime state to debug ladder/stuck behavior safely. P0-006 is the next requested priority and should identify every hardcoded fortress coordinate/range before we replace them with model/region data.

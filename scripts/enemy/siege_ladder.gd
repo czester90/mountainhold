@@ -128,6 +128,31 @@ func debug_summary() -> Dictionary:
 		"deployed": _deployed,
 	}
 
+func debug_unit_status(unit: Node) -> Dictionary:
+	_prune_climbers()
+	_prune_entry_reservations()
+	_prune_queue_slots()
+	var id := unit.get_instance_id() if unit != null and is_instance_valid(unit) else 0
+	var queued := id != 0 and queue_slots.has(id)
+	var climbing := id != 0 and active_climbers.has(id)
+	var entry_reserved := id != 0 and entry_reservations.has(id)
+	return {
+		"name": name,
+		"hp": hp,
+		"deployed": _deployed,
+		"capacity": climb_capacity,
+		"active_climbers": active_climber_count(),
+		"entry_reservations": entry_count(),
+		"queued_units": queue_count(),
+		"unit_climbing": climbing,
+		"unit_entry_reserved": entry_reserved,
+		"unit_queued": queued,
+		"unit_queue_slot": int(queue_slots[id].get("slot", -1)) if queued and queue_slots[id] is Dictionary else -1,
+		"unit_climb_slot": int(climb_slots[id]) if id != 0 and climb_slots.has(id) else -1,
+		"foot": foot,
+		"top": top,
+	}
+
 func _prune_climbers() -> void:
 	for id in active_climbers.keys():
 		var unit: Variant = active_climbers[id]

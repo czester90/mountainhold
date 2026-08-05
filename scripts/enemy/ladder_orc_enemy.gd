@@ -497,3 +497,25 @@ func _attack_unit(delta: float, defender: Node3D) -> void:
 func _on_attacked(damage: float) -> void:
 	if _attack_target and is_instance_valid(_attack_target) and _attack_target.has_method("take_damage"):
 		_attack_target.take_damage(damage, global_position)
+
+func ai_debug_snapshot() -> Dictionary:
+	var snapshot := super.ai_debug_snapshot()
+	snapshot["crew"] = {
+		"id": _crew_id,
+		"index": _crew_index,
+		"carrying": _carrying_ladder,
+		"deploying": _deploying_ladder,
+		"deployed": _ladder_deployed,
+		"helping_crew_id": _helping_crew_id,
+		"living_carriers": _living_carriers_for_crew() if _crew_id != 0 else 0,
+		"deploy_progress": _deploy_t,
+		"deploy_required": _deploy_duration_required() if _crew_id != 0 else 0.0,
+		"ladder_prop": _debug_node_name(_ladder_prop),
+	}
+	if _deploying_ladder:
+		snapshot["state"] = "deploying_ladder"
+	elif _carrying_ladder:
+		snapshot["state"] = "carrying_ladder"
+	elif _helping_crew_id != 0:
+		snapshot["state"] = "helping_ladder_crew"
+	return snapshot
