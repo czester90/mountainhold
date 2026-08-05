@@ -550,3 +550,32 @@ Remaining risk:
 
 - Scenario-level coverage still needs to verify approach, queue, climb, landing, and invalid-ladder switching together.
 - Full `make test` remains blocked by the previously recorded `siege_smoke_test.gd` hang/crash behavior.
+
+## 2026-08-05 — P1-007 Add Ladder Scenario Tests
+
+Status: DONE for deterministic ladder scenarios.
+
+Files changed:
+
+- `test/enemy_test.gd`
+- `docs/refactoring_backlog.md`
+- `docs/refactoring_log.md`
+
+Summary:
+
+- Added a scenario test where an enemy reaches a full ladder, reserves a queue slot, enters `queuing_ladder`, and moves toward that queue point.
+- Added a scenario test that ladder selection skips a released/invalid ladder and chooses an active deployed ladder.
+- Added a scenario test that ladder traversal completion puts the enemy on the wall path/state.
+- Marked P1-007 complete.
+
+Validation:
+
+- `make test-target TEST=res://test/enemy_test.gd` passed: 19 test cases, 0 failures.
+
+Behavior changes:
+
+- None; this task adds coverage for the ladder fixes from P1-004 through P1-006.
+
+Remaining risk:
+
+- Full-scene ladder/wall smoke coverage is still limited by the broader `siege_smoke_test.gd` hang/crash baseline.

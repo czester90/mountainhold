@@ -267,11 +267,11 @@ Observed warnings and issues:
 - Problem: Screenshot-reported ladder bugs need reproducible coverage.
 - Affected files: `test/*`, `scripts/enemy/**`.
 - Expected result: Tests cover enemies approaching ladders, entering queues, climbing, landing on wall, and switching when ladder is invalid.
-- Implementation notes: Keep tests small and deterministic; avoid full scene unless needed.
+- Implementation notes: Added deterministic enemy tests for queued movement when ladder entry is full, invalid/released ladder selection, and post-climb wall landing state. These extend cleanup and queue coverage without requiring the full smoke scene.
 - Dependencies: P1-004, P1-006.
 - Risk: low.
 - Test strategy: new GdUnit tests.
-- Status: TODO.
+- Status: DONE.
 
 ### P1-008 — Define Assault Sectors
 

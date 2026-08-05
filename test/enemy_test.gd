@@ -213,6 +213,46 @@ func test_ladder_queue_capacity_blocks_extra_units() -> void:
 	assert_int(summary["queued"]).is_equal(1)
 	assert_int(summary["queue_capacity"]).is_equal(1)
 
+func test_enemy_moves_to_ladder_queue_when_entry_is_full() -> void:
+	var first := _spawn()
+	var second := _spawn()
+	var ladder: Node3D = auto_free(SiegeLadder.instantiate())
+	add_child(ladder)
+	await await_millis(30)
+	ladder.set("climb_capacity", 1)
+	ladder.call("deploy", Vector3.ZERO, Vector3(3.0, 8.0, 0.0), Vector3.FORWARD)
+	assert_bool(ladder.call("reserve_entry", first)).is_true()
+	second.global_position = ladder.call("entry_point_for_unit", second)
+	assert_bool(second.call("_approach_ladder_entry_or_climb", ladder, ladder.get("foot"), ladder.get("top"), 4.2, 0.1)).is_true()
+	var status: Dictionary = ladder.call("debug_unit_status", second)
+	assert_str(second.call("ai_state_name")).is_equal("queuing_ladder")
+	assert_bool(status["unit_queued"]).is_true()
+	assert_float(second.velocity.length()).is_greater(0.0)
+
+func test_ladder_brain_skips_invalid_ladder_and_selects_active_one() -> void:
+	var e := _spawn()
+	var released: Node3D = auto_free(SiegeLadder.instantiate())
+	var active: Node3D = auto_free(SiegeLadder.instantiate())
+	var brain: Node = auto_free(LadderAssaultBrainScript.new())
+	add_child(released)
+	add_child(active)
+	add_child(brain)
+	await await_millis(30)
+	released.call("deploy", Vector3.ZERO, Vector3(3.0, 8.0, 0.0), Vector3.FORWARD)
+	active.call("deploy", Vector3(10.0, 0.0, 0.0), Vector3(13.0, 8.0, 0.0), Vector3.FORWARD)
+	released.call("mark_released")
+	var selected: Node = brain.call("choose_active_ladder", self, e)
+	assert_object(selected).is_same(active)
+
+func test_enemy_ladder_completion_places_unit_on_wall_path() -> void:
+	var e := _spawn()
+	await await_millis(30)
+	e.call("_on_traversal_completed", &"ladder", Vector3(2.0, 8.0, 3.0))
+	var snapshot: Dictionary = e.call("ai_debug_snapshot")
+	assert_str(snapshot["state"]).is_equal("on_wall")
+	assert_int(snapshot["path_size"]).is_equal(1)
+	assert_vector(snapshot["objective"]["current"]).is_equal(Vector3(2.0, 8.0, 3.0))
+
 func test_ladder_orc_ai_debug_snapshot_reports_crew_state() -> void:
 	var e: CharacterBody3D = auto_free(LadderOrc.instantiate())
 	add_child(e)
