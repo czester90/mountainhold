@@ -89,6 +89,95 @@ func assault_sectors(require_free_ladder: bool = false) -> Array[Dictionary]:
 			free_sectors.append(sector)
 	return free_sectors
 
+func role_for_kind(kind: String) -> String:
+	match kind:
+		"ram", "bossram":
+			return "gate_engine"
+		"archer":
+			return "archer_cover"
+		_:
+			return "wall_assault"
+
+func unit_order(kind: String, route: Array, gate_waypoint: int) -> Dictionary:
+	var role := role_for_kind(kind)
+	var order := {
+		"kind": kind,
+		"role": role,
+		"spawn": next_wide_spawn_point(),
+		"route": route,
+		"gate_waypoint": gate_waypoint,
+		"uses_wall_assault": role != "gate_engine",
+	}
+	if role != "gate_engine":
+		var assault := pick_ladder_assault_point()
+		order["approach"] = assault.get("approach", spawn_centre)
+		order["foot"] = assault.get("foot", spawn_centre)
+	return order
+
+func ladder_crew_plan(crew_id: int) -> Dictionary:
+	var slot := reserve_ladder_slot()
+	var normal := Vector3(-1.0, 0.0, 0.0)
+	var fallback_z := spawn_centre.z + (24.0 if crew_id % 2 == 0 else -24.0)
+	var foot := Vector3(288.0, _ground(288.0, fallback_z) + 0.15, fallback_z)
+	var top := Vector3(294.0, 22.0, fallback_z)
+	if slot:
+		foot = slot.get_meta("foot", foot)
+		top = slot.get_meta("top", top)
+		normal = slot.get_meta("normal", normal)
+		slot.set_meta("reserved_by", crew_id)
+	normal.y = 0.0
+	if normal.length() < 0.01:
+		normal = Vector3(-1.0, 0.0, 0.0)
+	normal = normal.normalized()
+	var side := normal.cross(Vector3.UP).normalized()
+	if side.length() < 0.01:
+		side = Vector3.FORWARD
+	top = resolved_ladder_landing(top, normal)
+	var crew_spawn := spawn_point_for_ladder_foot(foot, normal)
+	return {
+		"crew_id": crew_id,
+		"slot": slot,
+		"foot": foot,
+		"top": top,
+		"normal": normal,
+		"side": side,
+		"crew_spawn": crew_spawn,
+	}
+
+func ladder_carrier_order(plan: Dictionary, crew_index: int) -> Dictionary:
+	var normal: Vector3 = plan.get("normal", Vector3(-1.0, 0.0, 0.0))
+	var side: Vector3 = plan.get("side", Vector3.FORWARD)
+	var crew_spawn: Vector3 = plan.get("crew_spawn", spawn_centre)
+	return {
+		"kind": "ladder_carrier",
+		"role": "ladder_carrier",
+		"crew_id": int(plan.get("crew_id", 0)),
+		"crew_index": crew_index,
+		"foot": plan.get("foot", spawn_centre),
+		"top": plan.get("top", spawn_centre + Vector3.UP * 6.0),
+		"normal": normal,
+		"crew_spawn": crew_spawn,
+		"spawn": crew_spawn + side * (-1.6 if crew_index % 2 == 0 else 1.6) + normal * (1.1 if crew_index < 2 else -1.1),
+	}
+
+func ladder_escort_order(plan: Dictionary, escort_index: int) -> Dictionary:
+	var foot: Vector3 = plan.get("foot", spawn_centre)
+	var normal: Vector3 = plan.get("normal", Vector3(-1.0, 0.0, 0.0))
+	var side: Vector3 = plan.get("side", Vector3.FORWARD)
+	var crew_spawn: Vector3 = plan.get("crew_spawn", spawn_centre)
+	var cover_foot := foot + normal * randf_range(3.0, 5.0) + side * float(escort_index - 1) * 2.2
+	var approach := crew_spawn + side * float(escort_index - 1) * 2.8
+	cover_foot.y = foot.y
+	approach.y = foot.y
+	return {
+		"kind": "ladder_escort",
+		"role": "ladder_escort",
+		"crew_id": int(plan.get("crew_id", 0)),
+		"spawn": crew_spawn + side * float(escort_index - 1) * 2.4 - normal * 3.0,
+		"approach": approach,
+		"cover_foot": cover_foot,
+	}
+
 func spawn_point_for_ladder_foot(foot: Vector3, normal: Vector3) -> Vector3:
 	normal.y = 0.0
 	if normal.length() < 0.01:

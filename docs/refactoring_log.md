@@ -641,3 +641,34 @@ Behavior changes:
 Remaining risk:
 
 - Staging visuals still use the spawner's existing horizon point helper until the next wave/director handoff task.
+
+## P1-009 — Expand Siege Director Responsibilities
+
+Files changed:
+
+- `scripts/enemy/siege_director.gd`
+- `scripts/enemy/wave_spawner.gd`
+- `test/wave_spawner_test.gd`
+- `docs/refactoring_backlog.md`
+- `docs/refactoring_log.md`
+
+Summary:
+
+- Added director-owned high-level roles for gate engines, archer cover, wall assault, ladder carriers, and ladder escorts.
+- Added director tactical orders for normal units, ladder crew plans, carrier starts, and escort cover routes.
+- Simplified `WaveSpawner` so it creates units and applies orders instead of duplicating ladder/role decisions.
+- Added tests for role assignment and ladder crew order generation.
+
+Validation:
+
+- `git diff --check` passed.
+- `make test-target TEST=res://test/wave_spawner_test.gd` passed: 8 test cases, 0 failures.
+- `make import` passed with existing duplicate UID, missing UID, case mismatch, and cleanup warnings.
+
+Behavior changes:
+
+- Enemy roles are now assigned consistently through `SiegeDirector`, which keeps tactical decisions out of per-spawn code.
+
+Remaining risk:
+
+- Wall and ladder brains still own local target/ladder selection until hysteresis and routing follow-ups.

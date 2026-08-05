@@ -77,6 +77,38 @@ func test_siege_director_skips_reserved_ladder_sectors() -> void:
 
 	assert_vector(selected.get_meta("foot")).is_equal(Vector3(288.0, 0.0, 544.0))
 
+func test_siege_director_assigns_high_level_unit_roles() -> void:
+	var director: Node3D = auto_free(SiegeDirectorScript.new())
+	add_child(director)
+	director.call("setup", Vector3(248.0, 0.0, 500.0), Vector3(6.0, 0.0, 30.0), null, null)
+	_add_ladder_slot(Vector3(288.0, 0.0, 456.0))
+
+	var ram_order: Dictionary = director.call("unit_order", "ram", [Vector3.ZERO], 0)
+	var archer_order: Dictionary = director.call("unit_order", "archer", [Vector3.ZERO], 0)
+	var infantry_order: Dictionary = director.call("unit_order", "infantry", [Vector3.ZERO], 0)
+
+	assert_str(ram_order["role"]).is_equal("gate_engine")
+	assert_bool(ram_order["uses_wall_assault"]).is_false()
+	assert_str(archer_order["role"]).is_equal("archer_cover")
+	assert_bool(archer_order["uses_wall_assault"]).is_true()
+	assert_str(infantry_order["role"]).is_equal("wall_assault")
+
+func test_siege_director_builds_ladder_crew_orders() -> void:
+	var director: Node3D = auto_free(SiegeDirectorScript.new())
+	add_child(director)
+	director.call("setup", Vector3(248.0, 0.0, 500.0), Vector3(6.0, 0.0, 30.0), null, null)
+	var slot := _add_ladder_slot(Vector3(288.0, 0.0, 544.0))
+
+	var plan: Dictionary = director.call("ladder_crew_plan", 77)
+	var carrier: Dictionary = director.call("ladder_carrier_order", plan, 0)
+	var escort: Dictionary = director.call("ladder_escort_order", plan, 1)
+
+	assert_int(slot.get_meta("reserved_by")).is_equal(77)
+	assert_str(carrier["role"]).is_equal("ladder_carrier")
+	assert_int(carrier["crew_id"]).is_equal(77)
+	assert_str(escort["role"]).is_equal("ladder_escort")
+	assert_vector(escort["cover_foot"]).is_not_equal(Vector3.INF)
+
 func _add_ladder_slot(foot: Vector3) -> Marker3D:
 	var slot: Marker3D = auto_free(Marker3D.new())
 	add_child(slot)

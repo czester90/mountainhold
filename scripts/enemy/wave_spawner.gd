@@ -214,13 +214,13 @@ func _activate_staged_wave() -> void:
 				unit.call("setup_wall_assault", [order["approach"], order["cover_foot"]], self)
 			else:
 				unit.call("setup_path", ROUTE, self, GATE_WP)
-		elif kind == "ram" or kind == "bossram":
-			unit.call("setup_path", ROUTE, self, GATE_WP)
+		elif bool(order.get("uses_wall_assault", false)) and unit.has_method("setup_wall_assault"):
+			unit.call("setup_wall_assault", [order["approach"], order["foot"]], self)
 		elif unit.has_method("setup_wall_assault"):
 			var assault := _pick_ladder_assault_point()
 			unit.call("setup_wall_assault", [assault["approach"], assault["foot"]], self)
 		else:
-			unit.call("setup_path", ROUTE, self, GATE_WP)
+			unit.call("setup_path", order.get("route", ROUTE), int(order.get("gate_waypoint", GATE_WP)))
 		activated += 1
 		if activated % 12 == 0:
 			await get_tree().process_frame
@@ -300,80 +300,54 @@ func _spawn_one(kind: String = "infantry") -> void:
 		return
 	var scene: PackedScene = SCENES.get(kind, SCENES["infantry"])
 	var e := scene.instantiate()
-	var spawn := _next_wide_spawn_point()
+	var order := _unit_order(kind)
 	(get_tree().current_scene if get_tree().current_scene else get_parent()).add_child(e)
-	e.global_position = _valid_spawn_point(spawn)
-	e.set_meta("siege_role", "gate_engine" if kind == "ram" or kind == "bossram" else "wall_assault")
-	if kind != "ram" and kind != "bossram" and e.has_method("setup_wall_assault"):
-		var assault := _pick_ladder_assault_point()
-		e.setup_wall_assault([assault["approach"], assault["foot"]], self)
+	e.global_position = _valid_spawn_point(order.get("spawn", spawn_centre))
+	e.set_meta("siege_role", order.get("role", "wall_assault"))
+	if bool(order.get("uses_wall_assault", false)) and e.has_method("setup_wall_assault"):
+		e.setup_wall_assault([order["approach"], order["foot"]], self)
 	else:
-		e.setup_path(ROUTE, self, GATE_WP)
+		e.setup_path(order.get("route", ROUTE), self, int(order.get("gate_waypoint", GATE_WP)))
 	_track_enemy(e)
 
 func _stage_one(kind: String = "infantry") -> Node:
 	var scene: PackedScene = SCENES.get(kind, SCENES["infantry"])
 	var e := scene.instantiate()
+	var order := _unit_order(kind)
 	(get_tree().current_scene if get_tree().current_scene else get_parent()).add_child(e)
 	e.global_position = _valid_spawn_point(_next_staging_point())
-	e.set_meta("siege_role", "gate_engine" if kind == "ram" or kind == "bossram" else "wall_assault")
+	e.set_meta("siege_role", order.get("role", "wall_assault"))
 	e.set_meta("staged_wave", true)
 	e.set_meta("staged_waiting", true)
 	_track_enemy(e)
-	_staged_orders.append({"unit": e, "kind": kind})
+	order["unit"] = e
+	_staged_orders.append(order)
 	return e
 
 func _spawn_ladder_crew() -> void:
-	var slot := _reserve_ladder_slot()
 	var crew_id := _ladder_crew_seq
 	_ladder_crew_seq += 1
-	var normal := Vector3(-1.0, 0.0, 0.0)
-	var fallback_z := spawn_centre.z + (24.0 if crew_id % 2 == 0 else -24.0)
-	var foot := Vector3(288.0, _ground(288.0, fallback_z) + 0.15, fallback_z)
-	var top := Vector3(294.0, 22.0, fallback_z)
-	if slot:
-		foot = slot.get_meta("foot", foot)
-		top = slot.get_meta("top", top)
-		normal = slot.get_meta("normal", normal)
-		slot.set_meta("reserved_by", crew_id)
-	var side := normal.cross(Vector3.UP).normalized()
-	if side.length() < 0.01:
-		side = Vector3.FORWARD
-	top = _resolved_ladder_landing(top, normal)
-	var crew_spawn := _spawn_point_for_ladder_foot(foot, normal)
+	var plan := _ladder_crew_plan(crew_id)
 	for i in LADDER_CARRIERS_PER_CREW:
 		var e := LADDER_ORC_SCENE.instantiate()
-		var start := crew_spawn + side * (-1.6 if i % 2 == 0 else 1.6) + normal * (1.1 if i < 2 else -1.1)
+		var order := _ladder_carrier_order(plan, i)
 		(get_tree().current_scene if get_tree().current_scene else get_parent()).add_child(e)
-		e.global_position = _valid_spawn_point(start)
+		e.global_position = _valid_spawn_point(order["spawn"])
 		e.add_to_group("ladder_carrier")
 		e.set_meta("siege_role", "ladder_carrier")
 		e.set_meta("ladder_crew_id", crew_id)
-		e.setup_ladder_carry(crew_id, i, foot, top, normal, self, crew_spawn)
+		e.setup_ladder_carry(crew_id, i, order["foot"], order["top"], order["normal"], self, order["crew_spawn"])
 		_track_enemy(e)
 		await get_tree().process_frame
-	await _spawn_ladder_escorts(crew_id, foot, normal, side, crew_spawn)
+	await _spawn_ladder_escorts(plan)
 
 func _stage_ladder_crew() -> void:
-	var slot := _reserve_ladder_slot()
 	var crew_id := _ladder_crew_seq
 	_ladder_crew_seq += 1
-	var normal := Vector3(-1.0, 0.0, 0.0)
-	var fallback_z := spawn_centre.z + (24.0 if crew_id % 2 == 0 else -24.0)
-	var foot := Vector3(288.0, _ground(288.0, fallback_z) + 0.15, fallback_z)
-	var top := Vector3(294.0, 22.0, fallback_z)
-	if slot:
-		foot = slot.get_meta("foot", foot)
-		top = slot.get_meta("top", top)
-		normal = slot.get_meta("normal", normal)
-		slot.set_meta("reserved_by", crew_id)
-	var side := normal.cross(Vector3.UP).normalized()
-	if side.length() < 0.01:
-		side = Vector3.FORWARD
-	top = _resolved_ladder_landing(top, normal)
-	var crew_spawn := _spawn_point_for_ladder_foot(foot, normal)
+	var plan := _ladder_crew_plan(crew_id)
 	for i in LADDER_CARRIERS_PER_CREW:
 		var e := LADDER_ORC_SCENE.instantiate()
+		var order := _ladder_carrier_order(plan, i)
 		(get_tree().current_scene if get_tree().current_scene else get_parent()).add_child(e)
 		e.global_position = _valid_spawn_point(_next_staging_point())
 		e.add_to_group("ladder_carrier")
@@ -381,39 +355,35 @@ func _stage_ladder_crew() -> void:
 		e.set_meta("ladder_crew_id", crew_id)
 		e.set_meta("staged_wave", true)
 		e.set_meta("staged_waiting", true)
-		e.setup_ladder_carry(crew_id, i, foot, top, normal, self, crew_spawn)
+		e.setup_ladder_carry(crew_id, i, order["foot"], order["top"], order["normal"], self, order["crew_spawn"])
 		e.set("path", [])
 		e.set("target", e.global_position)
 		_track_enemy(e)
-		_staged_orders.append({"unit": e, "kind": "ladder_carrier", "crew_id": crew_id, "crew_index": i, "foot": foot, "top": top, "normal": normal, "crew_spawn": crew_spawn})
+		order["unit"] = e
+		_staged_orders.append(order)
 	for i in LADDER_ESCORTS_PER_CREW:
 		var e := SCENES["infantry"].instantiate()
+		var order := _ladder_escort_order(plan, i)
 		(get_tree().current_scene if get_tree().current_scene else get_parent()).add_child(e)
 		e.global_position = _valid_spawn_point(_next_staging_point())
-		var cover_foot := foot + normal * randf_range(3.0, 5.0) + side * float(i - 1) * 2.2
-		var approach := crew_spawn + side * float(i - 1) * 2.8
-		cover_foot.y = foot.y
-		approach.y = foot.y
 		e.add_to_group("ladder_escort")
 		e.set_meta("siege_role", "ladder_escort")
 		e.set_meta("escort_crew_id", crew_id)
 		e.set_meta("staged_wave", true)
 		e.set_meta("staged_waiting", true)
 		_track_enemy(e)
-		_staged_orders.append({"unit": e, "kind": "ladder_escort", "approach": approach, "cover_foot": cover_foot})
+		order["unit"] = e
+		_staged_orders.append(order)
 
-func _spawn_ladder_escorts(crew_id: int, foot: Vector3, normal: Vector3, side: Vector3, crew_spawn: Vector3) -> void:
+func _spawn_ladder_escorts(plan: Dictionary) -> void:
+	var crew_id := int(plan.get("crew_id", 0))
 	for i in LADDER_ESCORTS_PER_CREW:
 		var e := SCENES["infantry"].instantiate()
-		var start := crew_spawn + side * float(i - 1) * 2.4 - normal * 3.0
+		var order := _ladder_escort_order(plan, i)
 		(get_tree().current_scene if get_tree().current_scene else get_parent()).add_child(e)
-		e.global_position = _valid_spawn_point(start)
+		e.global_position = _valid_spawn_point(order["spawn"])
 		if e.has_method("setup_wall_assault"):
-			var cover_foot := foot + normal * randf_range(3.0, 5.0) + side * float(i - 1) * 2.2
-			var approach := crew_spawn + side * float(i - 1) * 2.8
-			cover_foot.y = foot.y
-			approach.y = foot.y
-			e.setup_wall_assault([approach, cover_foot], self)
+			e.setup_wall_assault([order["approach"], order["cover_foot"]], self)
 		else:
 			e.setup_path(ROUTE, self, GATE_WP)
 		e.add_to_group("ladder_escort")
@@ -427,6 +397,25 @@ func _reserve_ladder_slot() -> Node3D:
 
 func _pick_ladder_assault_point() -> Dictionary:
 	return _siege_director.pick_ladder_assault_point() if _siege_director else {}
+
+func _unit_order(kind: String) -> Dictionary:
+	return _siege_director.unit_order(kind, ROUTE, GATE_WP) if _siege_director else {
+		"kind": kind,
+		"role": "gate_engine" if kind == "ram" or kind == "bossram" else "wall_assault",
+		"spawn": _next_wide_spawn_point(),
+		"route": ROUTE,
+		"gate_waypoint": GATE_WP,
+		"uses_wall_assault": kind != "ram" and kind != "bossram",
+	}
+
+func _ladder_crew_plan(crew_id: int) -> Dictionary:
+	return _siege_director.ladder_crew_plan(crew_id) if _siege_director else {}
+
+func _ladder_carrier_order(plan: Dictionary, crew_index: int) -> Dictionary:
+	return _siege_director.ladder_carrier_order(plan, crew_index) if _siege_director else {}
+
+func _ladder_escort_order(plan: Dictionary, escort_index: int) -> Dictionary:
+	return _siege_director.ladder_escort_order(plan, escort_index) if _siege_director else {}
 
 func _next_wide_spawn_point() -> Vector3:
 	return _siege_director.next_wide_spawn_point() if _siege_director else spawn_centre + Vector3(randf_range(-spawn_spread.x, spawn_spread.x), 0.0, randf_range(-spawn_spread.z, spawn_spread.z))

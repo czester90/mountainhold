@@ -289,11 +289,11 @@ Observed warnings and issues:
 - Problem: Tactical assignment is split between spawner, individual enemies, ladder logic, and brains.
 - Affected files: `scripts/enemy/siege_director.gd`, `scripts/enemy/wave_spawner.gd`, `scripts/enemy/wall_assault_brain.gd`, `scripts/enemy/ladder_assault_brain.gd`.
 - Expected result: `SiegeDirector` owns high-level role allocation: archers, ladder carriers, escorts, ram, wall assault, keep pressure.
-- Implementation notes: Move decisions gradually, leaving unit-local execution intact.
+- Implementation notes: Added `SiegeDirector` tactical order APIs for unit roles, wall assault orders, ladder crew plans, carrier orders, and escort orders. `WaveSpawner` now instantiates/stages units and executes director-owned orders.
 - Dependencies: P0-003, P1-008.
 - Risk: high.
 - Test strategy: role assignment tests and wave smoke.
-- Status: TODO.
+- Status: DONE.
 
 ### P1-010 — Add Reassignment Hysteresis
 
