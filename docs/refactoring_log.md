@@ -786,3 +786,35 @@ Behavior changes:
 Remaining risk:
 
 - Specialized enemy archers still have a small subclass-specific ranged setup and can be normalized further in a later pass.
+
+## P1-016 — Add Fortress Validation Tool
+
+Files changed:
+
+- `scripts/castle/scene_validator.gd`
+- `scripts/castle/fortress_generator.gd`
+- `test/fortress_navigation_test.gd`
+- `docs/refactoring_backlog.md`
+- `docs/refactoring_log.md`
+
+Summary:
+
+- Extended `SceneValidator` beyond physics ray probes to validate fortress model data.
+- Added checks for required semantic regions, ladder slot metadata, tactical slot kinds, navigation edge endpoints, navigation links, and navigation meshes.
+- Added fortress scene coverage that fails with a concrete issue list when generated AI/navigation data is incomplete.
+- Filtered generated ladder slots whose wall top is not above the field foot, so AI cannot reserve impossible ladders.
+
+Validation:
+
+- `git diff --check` passed.
+- `make test-target TEST=res://test/scene_validator_test.gd` passed: 1 test case, 0 failures.
+- `make test-target TEST=res://test/fortress_navigation_test.gd` passed: 1 test case, 0 failures.
+- `make import` passed with existing duplicate UID, missing UID, case mismatch, and cleanup warnings.
+
+Behavior changes:
+
+- Invalid generated ladder slots are now skipped before enemies can reserve them.
+
+Remaining risk:
+
+- Route reachability remains graph-level work for P1-017.

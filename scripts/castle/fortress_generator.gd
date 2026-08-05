@@ -295,6 +295,8 @@ func _register_line_slots(slot_kind: StringName, a: Vector3, b: Vector3, facing:
 		_register_tactical_slot(slot_kind, a.lerp(b, t), facing, priority)
 
 func _register_ladder_slot(module: Node, foot: Vector3, top: Vector3, normal: Vector3, priority: int = 0) -> void:
+	if top.y <= foot.y + 1.0:
+		return
 	var slot := Marker3D.new()
 	slot.name = "LadderSlot"
 	gen().add_child(slot)

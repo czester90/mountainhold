@@ -366,11 +366,11 @@ Observed warnings and issues:
 - Problem: Generated fortress data can be incomplete without obvious editor feedback.
 - Affected files: `scripts/castle/**`, possible `tools/**`, `test/*`.
 - Expected result: Validator reports missing ladder slots, unreachable towers, disconnected wall nodes, and invalid tactical slots.
-- Implementation notes: Start as test/helper callable in headless mode.
+- Implementation notes: Extended `SceneValidator` with headless model validation for required fortress regions, ladder slot metadata, tactical slot kinds, navigation edge endpoints, links, and navigation meshes.
 - Dependencies: P0-008.
 - Risk: low.
 - Test strategy: fortress validation tests.
-- Status: TODO.
+- Status: DONE.
 
 ### P1-017 — Add Navigation Scenario Tests
 

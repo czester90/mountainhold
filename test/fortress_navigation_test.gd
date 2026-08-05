@@ -16,6 +16,9 @@ func test_fortress_registers_navigation_without_extra_podests() -> void:
 	assert_int((model.call("summary") as Dictionary)["regions"]).is_greater_equal(6)
 	assert_bool((model.call("region", &"staging_horizon") as Dictionary).has("center")).is_true()
 	assert_bool((model.call("region", &"wall_front") as Dictionary).has("metadata")).is_true()
+	var validator := SceneValidator.new()
+	var issues: Array = validator.validate_model(model)
+	assert_array(issues).override_failure_message("Fortress model issues: %s" % str(issues)).is_empty()
 	assert_object((nav_regions[0] as NavigationRegion3D).navigation_mesh).is_not_null()
 	for node in nav_links:
 		assert_bool(node is NavigationLink3D).is_true()
