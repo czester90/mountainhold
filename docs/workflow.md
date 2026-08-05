@@ -1,5 +1,7 @@
 # Staged Workflow & Approval Gates
 
+> **STALE / HISTORICAL:** ten dokument opisuje dawny staged workflow środowiska. Aktualny kontekst gry i dalszy plan są w `CODEX.md`, `docs/current_game_mechanics.md` i `docs/task-log/godot_mechanics_refactor_plan.md`.
+
 This project is built in small, strictly separated stages. **No stage begins
 until the previous one is explicitly approved by the human reviewer.** Even if a
 later stage looks trivial, it is not started early.

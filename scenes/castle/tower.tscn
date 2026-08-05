@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://ctwr0mtnhld12"]
+
+[ext_resource type="Script" path="res://scripts/castle/modules/tower.gd" id="1"]
+
+[node name="Tower" type="Node3D"]
+script = ExtResource("1")

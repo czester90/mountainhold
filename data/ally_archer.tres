@@ -1,0 +1,25 @@
+[gd_resource type="Resource" script_class="UnitStats" load_steps=2 format=3 uid="uid://cmtnstatsally1"]
+
+[ext_resource type="Script" path="res://scripts/characters/unit_stats.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+type_id = &"ally_archer"
+display_name = "Wall Archer"
+faction = 1
+role = 2
+level = 1
+xp = 0
+kill_value = 1
+max_hp = 45.0
+defense = 0.5
+armor = 0.08
+armor_type = &"leather"
+attack_damage = 25.0
+melee_attack_damage = 4.0
+ranged_attack_damage = 25.0
+fire_interval = 2.2
+arrow_speed = 58.0
+sight_range = 70.0
+spread_deg = 1.5
+muzzle_height = 1.6

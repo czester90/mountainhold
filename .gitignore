@@ -17,3 +17,10 @@ assets/raw/terrain/motion_forge/*.tif
 assets/processed/terrain/heightmap_data/
 assets/processed/terrain/fortress_data/
 assets/processed/terrain/fortress_kit_data/
+
+# Loafbrr kit installed at its native res:// path (re-copyable from Downloads)
+/Assets/LoafbrrAssets/CastleWallKit/textures/
+/Assets/LoafbrrAssets/CastleWallKit/gltf/
+
+# GdUnit4 test reports
+/reports/

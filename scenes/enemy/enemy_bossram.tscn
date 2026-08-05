@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://cenemyboss0mtn"]
+
+[ext_resource type="Script" path="res://scripts/enemy/boss_ram_enemy.gd" id="1"]
+
+[node name="Enemy" type="CharacterBody3D"]
+script = ExtResource("1")

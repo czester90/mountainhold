@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="UnitStats" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/characters/unit_stats.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+type_id = &"enemy_bossram"
+display_name = "Great Siege Ram"
+faction = 2
+role = 4
+level = 4
+xp_value = 120
+kill_value = 8
+max_hp = 700.0
+defense = 5.0
+armor = 0.28
+armor_type = &"ironclad_wood"
+speed = 0.9
+gravity = 20.0
+step_height = 0.7
+attack_range = 5.5
+attack_damage = 34.0
+melee_attack_damage = 34.0
+attack_interval = 2.0

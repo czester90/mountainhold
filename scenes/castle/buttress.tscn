@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://cbuttress0mtn"]
+
+[ext_resource type="Script" path="res://scripts/castle/modules/buttress.gd" id="1"]
+
+[node name="Buttress" type="Node3D"]
+script = ExtResource("1")

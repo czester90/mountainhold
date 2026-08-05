@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://crecoverchk0mt"]
+
+[ext_resource type="Script" path="res://scripts/test/recover_check.gd" id="1"]
+
+[node name="RecoverCheck" type="Node3D"]
+script = ExtResource("1")

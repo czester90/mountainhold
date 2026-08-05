@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://ccapfort0mtn1"]
+
+[ext_resource type="Script" path="res://scripts/castle/capture_fortress.gd" id="1"]
+
+[node name="CapF" type="Node3D"]
+script = ExtResource("1")

@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://cenemyarrow0mt"]
+
+[ext_resource type="Script" path="res://scripts/enemy/enemy_arrow.gd" id="1"]
+
+[node name="EnemyArrow" type="Node3D"]
+script = ExtResource("1")

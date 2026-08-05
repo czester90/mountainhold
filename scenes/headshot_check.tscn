@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://cheadshotchk0m"]
+
+[ext_resource type="Script" path="res://scripts/test/headshot_check.gd" id="1"]
+
+[node name="HeadshotCheck" type="Node3D"]
+script = ExtResource("1")

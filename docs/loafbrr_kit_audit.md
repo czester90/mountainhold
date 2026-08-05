@@ -90,8 +90,22 @@ tower/stair assembly test):
   grid (a hexagon of radius 6 has chord 6 → they fit a hex tower with no overhang).
 - **Stairs** = the kit `Stairs` piece (6×6×6, solid steps) placed seated on the
   ground in a grid cell, climbing 6 m to the wall-walk. Not a floating box ramp.
-- **Round tower**: 4× `*_Corner_Round` do NOT close into a drum by simple
-  90° rotation about the shared centre; a hexagon of 6 `Courtine_Wall` panels
-  (radius 6) is the reliable round-ish tower here.
-- **Tower access** is from the wall-walk (platform at walk height) — no internal
-  tower stair.
+- **Round tower — SOLVED (measured geometry).** `Wall_Corner_Round` is a quarter
+  cylinder, radius **6**, arc centre at local **(6, 0, -6)** (every curved vertex is
+  exactly 6.00 from that point). Four quarters close into a full radius-6 drum
+  **only if each origin is offset so the arc centres coincide**:
+  `origin = axis + (0, course*6, 0) - Basis(UP, q*90°) * Vector3(6,0,-6)`, q=0..3.
+  Stack courses of 4 for height (2 courses = 12 m, taller than the 6 m wall).
+  Earlier "pinwheel" failure was rotating about the local origin without that
+  translation — it moved the arc centre in a circle instead of pinning it.
+- **Round crown/deck** use a DIFFERENT pivot: `Wall_Battlements_Corner_Round` and
+  `Wall_Floor_Round` have arc centre local **(3, 0, -3)**, radius 6 (Floor_Round is
+  a quarter *disc* — 4 fill the deck; Battlements_Corner_Round is the merlon ring
+  quarter). Same closing trick with `Vector3(3,0,-3)`.
+- **Tower access** is from the wall-walk onto the tower gallery deck (flush at walk
+  height) through a `Wall_Door_Arch` panel in the adjoining wall span. Validated in
+  `module_lab` (screenshots/module_lab/lab_04_walk_passage.png).
+- **Gatehouse / gate (after ref 3APdSw.png):** a grid of `Courtine_*` panels —
+  `Courtine_Door_Arch` at base centre (the gate), `Courtine_Window_Square` mid band,
+  `Courtine_Slits` (cross arrow-slits) upper band, `Wall_Battlements` crowning the
+  top course. Stack 3 courses (18 m) for the tall keep look.

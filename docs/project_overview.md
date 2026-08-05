@@ -1,5 +1,7 @@
 # Mountain Fortress Environment — Project Overview
 
+> **STALE / HISTORICAL:** ten dokument opisuje wczesny etap środowiskowy. Aktualny gameplay i mechaniki są opisane w `CODEX.md` oraz `docs/current_game_mechanics.md`.
+
 A grounded, low-poly mountain fortress **environment** built in Godot 4.7 for
 macOS. This repository builds the environment only, in strictly gated stages.
 There is **no gameplay** here yet: no enemies, combat, weapons, waves, health,

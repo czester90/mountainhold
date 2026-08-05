@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://ccave0mtnhold1"]
+
+[ext_resource type="Script" path="res://scripts/castle/modules/cave.gd" id="1"]
+
+[node name="Cave" type="Node3D"]
+script = ExtResource("1")

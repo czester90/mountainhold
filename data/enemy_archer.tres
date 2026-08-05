@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="UnitStats" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/characters/unit_stats.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+type_id = &"enemy_archer"
+display_name = "Besieger Archer"
+faction = 2
+role = 2
+level = 1
+xp_value = 14
+kill_value = 1
+max_hp = 85.0
+defense = 0.5
+armor = 0.04
+armor_type = &"cloth"
+speed = 2.0
+gravity = 20.0
+step_height = 0.6
+attack_range = 20.0
+attack_damage = 8.0
+melee_attack_damage = 4.0
+attack_interval = 1.7
+ranged_attack_damage = 8.0
+fire_interval = 1.7
+arrow_speed = 32.0
+sight_range = 55.0
+spread_deg = 2.2
+muzzle_height = 1.5

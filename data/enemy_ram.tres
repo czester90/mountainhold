@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="UnitStats" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/characters/unit_stats.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+type_id = &"enemy_ram"
+display_name = "Battering Ram"
+faction = 2
+role = 3
+level = 2
+xp_value = 40
+kill_value = 3
+max_hp = 300.0
+defense = 3.0
+armor = 0.2
+armor_type = &"reinforced_wood"
+speed = 1.1
+gravity = 20.0
+step_height = 0.7
+attack_range = 5.5
+attack_damage = 26.0
+melee_attack_damage = 26.0
+attack_interval = 2.0

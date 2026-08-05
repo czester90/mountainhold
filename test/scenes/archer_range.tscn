@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://carcherrange0mtn1"]
+
+[ext_resource type="Script" path="res://scripts/test/archer_range.gd" id="1"]
+
+[node name="ArcherRange" type="Node3D"]
+script = ExtResource("1")

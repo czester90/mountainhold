@@ -1,0 +1,11 @@
+Model Information:
+* title:	Animated FPS Bow
+* source:	https://sketchfab.com/3d-models/animated-fps-bow-a6095710c4a349a9ba2f3519d3131d50
+* author:	Levraicoincoin (https://sketchfab.com/Levraicoincoin)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Animated FPS Bow" (https://sketchfab.com/3d-models/animated-fps-bow-a6095710c4a349a9ba2f3519d3131d50) by Levraicoincoin (https://sketchfab.com/Levraicoincoin) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://cvfort0mtn12"]
+
+[ext_resource type="Script" path="res://scripts/castle/fly_view_fortress.gd" id="1"]
+
+[node name="ViewFortress" type="Node3D"]
+script = ExtResource("1")

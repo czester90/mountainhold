@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://ccapplay0mtn12"]
+
+[ext_resource type="Script" path="res://scripts/player/capture_play.gd" id="1"]
+
+[node name="CapPlay" type="Node3D"]
+script = ExtResource("1")

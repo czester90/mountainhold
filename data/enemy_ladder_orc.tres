@@ -1,0 +1,24 @@
+[gd_resource type="Resource" script_class="UnitStats" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/characters/unit_stats.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+type_id = &"enemy_ladder_orc"
+display_name = "Ladder Orc"
+faction = 2
+role = 5
+level = 1
+xp_value = 24
+kill_value = 1
+max_hp = 125.0
+defense = 1.5
+armor = 0.1
+armor_type = &"hide"
+speed = 3.9
+gravity = 20.0
+step_height = 0.9
+attack_range = 1.8
+attack_damage = 11.0
+melee_attack_damage = 11.0
+attack_interval = 0.75
