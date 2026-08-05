@@ -342,13 +342,13 @@ Observed warnings and issues:
 ### P1-014 — Audit Projectile Lifecycle
 
 - Problem: Arrow pooling exists, but projectile lifecycle must stay safe under high volume.
-- Affected files: `scripts/core/projectile_pool.gd`, `scripts/player/arrow_projectile.gd`, `scripts/ally/archer_shooting.gd`, `scripts/enemy/archer_enemy.gd`.
+- Affected files: `scripts/core/projectile_pool.gd`, `scripts/player/arrow.gd`, `scripts/ally/archer_shooting.gd`, `scripts/enemy/archer_enemy.gd`, `scripts/enemy/enemy_arrow.gd`.
 - Expected result: No allocation spikes, no physics-callback removals, no stale collision state.
-- Implementation notes: Preserve deferred recycle behavior.
+- Implementation notes: Enemy archer arrows now use `ProjectilePool` instead of per-shot instantiate/free. Player and enemy arrows guard against double despawn, deferred removal waits until arrows are detached before reuse, and player-arrow collision/rigid-body disabling is deferred to stay safe inside physics callbacks.
 - Dependencies: P1-013.
 - Risk: medium.
 - Test strategy: projectile pool tests and high-volume firing smoke.
-- Status: TODO.
+- Status: DONE.
 
 ### P1-015 — Audit Scans And Raycasts
 
@@ -440,6 +440,6 @@ Observed warnings and issues:
 
 ## First Selected Task
 
-Next implementation task: P1-014 — Audit Projectile Lifecycle.
+Next implementation task: P1-004 — Formalize Ladder State Machine.
 
-Reason: P1-015 now exposes raycast costs, so projectile lifecycle is the next adjacent performance risk before changing more gameplay logic.
+Reason: Projectile and raycast hotpaths now have safer lifecycle/measurement coverage; ladder state is the next source of visible AI stalls from the screenshots.

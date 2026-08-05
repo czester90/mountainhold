@@ -15,6 +15,7 @@ var _stuck := false
 var _age := 0.0
 var _shooter: Node = null
 var _pooled := false
+var _recycle_pending := false
 
 static var _shaft_mesh: CylinderMesh
 static var _head_mesh: CylinderMesh
@@ -124,6 +125,7 @@ func _on_body_entered(body: Node) -> void:
 func _reset_for_launch() -> void:
 	_stuck = false
 	_age = 0.0
+	_recycle_pending = false
 	freeze = false
 	sleeping = false
 	visible = true
@@ -137,6 +139,9 @@ func _reset_for_launch() -> void:
 	_shooter = null
 
 func _despawn() -> void:
+	if _recycle_pending:
+		return
+	_recycle_pending = true
 	if _pooled:
 		recycle_requested.emit(self)
 	else:

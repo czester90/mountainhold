@@ -8,10 +8,14 @@ extends Node3D
 
 const MASK := (1 << 0) | (1 << 3) | (1 << 4)   # world + allies + player
 
+signal recycle_requested(arrow: Node)
+
 var _vel: Vector3 = Vector3.ZERO
 var _dmg: float = 8.0
 var _age: float = 0.0
 var _prev: Vector3
+var _pooled := false
+var _recycle_pending := false
 
 static var _shaft_mesh: CylinderMesh
 static var _wood_material: StandardMaterial3D
@@ -20,11 +24,18 @@ func _ready() -> void:
 	_build_mesh()
 
 func setup(from: Vector3, dir: Vector3, speed: float, dmg: float) -> void:
+	_recycle_pending = false
+	_age = 0.0
+	visible = true
+	process_mode = Node.PROCESS_MODE_INHERIT
 	global_position = from
 	_prev = from
 	_vel = dir.normalized() * speed
 	_dmg = dmg
 	look_at(from + dir, Vector3.UP)
+
+func mark_pooled() -> void:
+	_pooled = true
 
 func _build_mesh() -> void:
 	_ensure_shared_assets()
@@ -47,7 +58,7 @@ func _ensure_shared_assets() -> void:
 func _physics_process(delta: float) -> void:
 	_age += delta
 	if _age > 6.0:
-		queue_free()
+		_despawn()
 		return
 	var next := global_position + _vel * delta
 	var space := get_world_3d().direct_space_state
@@ -60,9 +71,18 @@ func _physics_process(delta: float) -> void:
 			t = t.get_parent()                        # ally's collision lives on a child StaticBody
 		if t != null and t.has_method("take_damage"):
 			t.take_damage(_dmg, global_position - _vel.normalized() * 40.0)   # from_pos ~ back toward the archer
-		queue_free()
+		_despawn()
 		return
 	_prev = global_position
 	global_position = next
 	if _vel.length() > 0.1:
 		look_at(next + _vel, Vector3.UP)
+
+func _despawn() -> void:
+	if _recycle_pending:
+		return
+	_recycle_pending = true
+	if _pooled:
+		recycle_requested.emit(self)
+	else:
+		queue_free()

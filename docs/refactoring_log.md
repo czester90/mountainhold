@@ -409,3 +409,42 @@ Remaining risk:
 
 - Raycast counts are now visible, but thresholds and scheduling for these paths still need tuning after a manual high-unit-count run.
 - Full `make test` remains blocked by the previously recorded `siege_smoke_test.gd` hang/crash behavior.
+
+## 2026-08-05 — P1-014 Audit Projectile Lifecycle
+
+Status: DONE for pooled projectile lifecycle.
+
+Files changed:
+
+- `scripts/core/projectile_pool.gd`
+- `scripts/player/arrow.gd`
+- `scripts/enemy/enemy_arrow.gd`
+- `scripts/enemy/archer_enemy.gd`
+- `test/projectile_pool_test.gd`
+- `docs/refactoring_backlog.md`
+- `docs/refactoring_log.md`
+
+Summary:
+
+- Added pooled enemy archer arrows so enemy volleys no longer instantiate/free `enemy_arrow.tscn` per shot.
+- Added double-despawn guards to player and enemy arrows so repeated hit/timeout paths cannot enqueue the same projectile twice.
+- Deferred player-arrow collision/body/process disabling during recycle, fixing Godot physics-callback warnings during arrow hits.
+- Made pool enqueue wait until a projectile is detached from the tree before reuse, preserving the safe deferred-removal behavior.
+- Added lifecycle tests for enemy-arrow reuse and player-arrow duplicate despawn protection.
+- Marked P1-014 complete. P1-004 ladder state machine is the next visible AI-stall task.
+
+Validation:
+
+- `make test-target TEST=res://test/projectile_pool_test.gd` passed: 2 test cases, 0 failures, 0 orphans.
+- `make test-target TEST=res://test/ally_test.gd` passed all 16 test cases, then exited `101` because of the existing Godot cleanup/resource leak issue; no physics-callback collision warning remained after the deferred recycle fix.
+- `make test-target TEST=res://test/enemy_test.gd` passed: 12 test cases, 0 failures.
+- `make import` passed with existing duplicate UID, missing UID, asset case mismatch, and cleanup/resource leak warnings.
+
+Behavior changes:
+
+- Enemy archers still fire the same projectile script with the same setup inputs, but arrows are reused through the pool after despawn.
+
+Remaining risk:
+
+- The pool now reduces projectile churn, but manual high-volume volleys should still be profiled with F3 perf lines to confirm projectile churn is no longer the dominant spike.
+- Full `make test` remains blocked by the previously recorded `siege_smoke_test.gd` hang/crash behavior.

@@ -9,7 +9,7 @@ extends Enemy
 
 const SHOOT_RANGE := 55.0
 const MAX_DEFENDER_CANDIDATES := 8
-const ARROW := preload("res://scenes/enemy/enemy_arrow.tscn")
+const ProjectilePoolScript := preload("res://scripts/core/projectile_pool.gd")
 const DEFAULT_STATS := preload("res://data/enemy_archer.tres")
 
 var shoot_range: float = SHOOT_RANGE
@@ -59,9 +59,7 @@ func _fire_arrow(tgt: Node3D, accurate: bool) -> void:
 	var dir := (aim - muzzle)
 	if dir.length() < 0.01:
 		return
-	var a := ARROW.instantiate()
-	var host: Node = get_tree().current_scene if get_tree().current_scene else get_parent()
-	host.add_child(a)
+	var a := ProjectilePoolScript.acquire_enemy_arrow(self)
 	a.call("setup", muzzle, dir.normalized(), arrow_speed, attack_damage)
 
 # nearest defender (player or ally) within range that the archer has a clear central line of sight to
