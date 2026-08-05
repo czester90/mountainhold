@@ -355,11 +355,11 @@ Observed warnings and issues:
 - Problem: Targeting and LOS checks can dominate frame time as actors scale.
 - Affected files: `scripts/characters/targeting_component.gd`, `scripts/ally/defender_targeting.gd`, `scripts/enemy/archer_enemy.gd`, `scripts/core/combat_registry.gd`.
 - Expected result: All scans/raycasts have frequency limits, caps, and cached candidate lists.
-- Implementation notes: Measure before changing thresholds.
+- Implementation notes: Added split `PerfMonitor` timings for `TargetingComponent` acquisition/LOS rays, enemy archer defender scan/LOS/exposure rays, and allied ballistic launch rays. Existing registry caches and decision budgets remain the behavior-preserving caps while these costs are measured.
 - Dependencies: P1-013.
 - Risk: medium.
 - Test strategy: perf probes and correctness tests.
-- Status: TODO.
+- Status: DONE.
 
 ### P1-016 — Add Fortress Validation Tool
 
@@ -440,6 +440,6 @@ Observed warnings and issues:
 
 ## First Selected Task
 
-Next implementation task: P1-002 — Centralize Threat Evaluation.
+Next implementation task: P1-014 — Audit Projectile Lifecycle.
 
-Reason: P1-001 locked the registry spatial-query contract and fixed stale grid invalidation. P1-002 can now introduce threat scoring on top of reliable candidate lists without changing broad unit search behavior.
+Reason: P1-015 now exposes raycast costs, so projectile lifecycle is the next adjacent performance risk before changing more gameplay logic.

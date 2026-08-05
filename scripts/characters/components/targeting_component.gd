@@ -13,11 +13,14 @@ extends Node
 @export var priority_weight: float = 0.35
 @export var max_los_candidates: int = 8
 
+var _perf_monitor: Node = null
+
 func setup(p_range: float, p_group: String = "enemy") -> void:
 	sight_range = p_range
 	group = p_group
 
 func acquire(origin: Vector3, tree: SceneTree, space: PhysicsDirectSpaceState3D) -> Node3D:
+	var start_us := Time.get_ticks_usec()
 	var cand: Array = []
 	for e in _candidates(tree):
 		if not is_instance_valid(e):
@@ -37,7 +40,9 @@ func acquire(origin: Vector3, tree: SceneTree, space: PhysicsDirectSpaceState3D)
 		var e: Node3D = c[1]
 		var aim := _visible_aim_point(space, origin, e)
 		if aim.x < 1.0e19:
+			_record_perf_us(&"targeting_component_acquire", start_us)
 			return e
+	_record_perf_us(&"targeting_component_acquire", start_us)
 	return null
 
 func visible_aim_point(origin: Vector3, target: Node3D, space: PhysicsDirectSpaceState3D) -> Vector3:
@@ -52,9 +57,12 @@ func _visible_aim_point(space: PhysicsDirectSpaceState3D, from: Vector3, target:
 	return Vector3.INF
 
 func _has_los(space: PhysicsDirectSpaceState3D, from: Vector3, to: Vector3) -> bool:
+	var start_us := Time.get_ticks_usec()
 	var q := PhysicsRayQueryParameters3D.create(from, to)
 	q.collision_mask = 1
-	return space.intersect_ray(q).is_empty()
+	var clear := space.intersect_ray(q).is_empty()
+	_record_perf_us(&"targeting_los_ray", start_us)
+	return clear
 
 func _candidates(tree: SceneTree) -> Array:
 	var registry := tree.get_first_node_in_group("combat_registry")
@@ -66,3 +74,11 @@ func _candidates(tree: SceneTree) -> Array:
 		if group == "ram" and registry.has_method("active_rams"):
 			return registry.call("active_rams")
 	return tree.get_nodes_in_group(group)
+
+func _record_perf_us(key: StringName, start_us: int) -> void:
+	if not is_inside_tree():
+		return
+	if _perf_monitor == null or not is_instance_valid(_perf_monitor):
+		_perf_monitor = get_tree().get_first_node_in_group("perf_monitor")
+	if _perf_monitor != null and _perf_monitor.has_method("record_us"):
+		_perf_monitor.call("record_us", key, Time.get_ticks_usec() - start_us)

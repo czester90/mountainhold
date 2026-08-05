@@ -372,3 +372,40 @@ Remaining risk:
 
 - Raycast-heavy paths are visible indirectly through target acquisition cost, but individual LOS/projectile raycasts are not split out yet.
 - Full `make test` remains blocked by the previously recorded `siege_smoke_test.gd` hang/crash behavior.
+
+## 2026-08-05 — P1-015 Audit Scans And Raycasts
+
+Status: DONE for measurement coverage.
+
+Files changed:
+
+- `scripts/characters/components/targeting_component.gd`
+- `scripts/enemy/archer_enemy.gd`
+- `scripts/ally/archer_shooting.gd`
+- `docs/refactoring_backlog.md`
+- `docs/refactoring_log.md`
+
+Summary:
+
+- Added `PerfMonitor` timings around generic target acquisition and individual `TargetingComponent` LOS rays.
+- Split enemy archer cost into defender search, central LOS rays, exposure scoring, and exposure rays.
+- Split allied ballistic firing checks into total launch validation and per-segment world raycasts.
+- Kept behavior unchanged: this task measures the remaining raycast/scan hotpaths before altering caps, intervals, or targeting rules.
+- Marked P1-015 complete. P1-014 projectile lifecycle audit is the next adjacent performance task.
+
+Validation:
+
+- `make test-target TEST=res://test/components_test.gd` passed: 5 test cases, 0 failures.
+- `make test-target TEST=res://test/archer_scene_test.gd` passed all 2 test cases, then exited `101` because of the existing Godot cleanup/resource leak issue.
+- `make test-target TEST=res://test/ally_test.gd` passed all 16 test cases, then exited `101` because of the existing Godot cleanup/resource leak issue.
+- `make test-target TEST=res://test/enemy_test.gd` passed: 12 test cases, 0 failures.
+- `make import` passed with existing duplicate UID, missing UID, asset case mismatch, and cleanup/resource leak warnings.
+
+Behavior changes:
+
+- None intended. Only passive perf metrics were added.
+
+Remaining risk:
+
+- Raycast counts are now visible, but thresholds and scheduling for these paths still need tuning after a manual high-unit-count run.
+- Full `make test` remains blocked by the previously recorded `siege_smoke_test.gd` hang/crash behavior.

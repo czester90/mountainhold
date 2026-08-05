@@ -66,6 +66,7 @@ func _fire_arrow(tgt: Node3D, accurate: bool) -> void:
 
 # nearest defender (player or ally) within range that the archer has a clear central line of sight to
 func _find_defender() -> Node3D:
+	var start_us := Time.get_ticks_usec()
 	var origin := global_position + Vector3.UP * 1.4
 	var space := get_world_3d().direct_space_state
 	var best: Node3D = null
@@ -90,11 +91,14 @@ func _find_defender() -> Node3D:
 		var d2: float = scored[i][0]
 		var q := PhysicsRayQueryParameters3D.create(origin, tp)
 		q.collision_mask = 1 << 0                       # world only — a wall between us blocks the shot
+		var ray_start_us := Time.get_ticks_usec()
 		var hit := space.intersect_ray(q)
+		_record_perf_us(&"enemy_archer_los_ray", ray_start_us)
 		if not hit.is_empty() and origin.distance_squared_to(hit.position) < d2 - 4.0:
 			continue                                    # blocked by masonry
 		best = c
 		bestd = d2
+	_record_perf_us(&"enemy_archer_find_defender", start_us)
 	return best
 
 func _nearby_defenders(origin: Vector3, radius: float) -> Array:
@@ -106,6 +110,7 @@ func _nearby_defenders(origin: Vector3, radius: float) -> Array:
 # fraction of the target the archer can see (0..1): rays to chest/shoulders/legs/head; masonry
 # (merlons on a rampart, jambs around a window/loop) blocks some -> harder to hit behind cover
 func _exposure(target: Node3D) -> float:
+	var start_us := Time.get_ticks_usec()
 	var origin := global_position + Vector3.UP * 1.4
 	var space := get_world_3d().direct_space_state
 	var base := target.global_position
@@ -127,7 +132,10 @@ func _exposure(target: Node3D) -> float:
 		var d2 := origin.distance_squared_to(tp)
 		var q := PhysicsRayQueryParameters3D.create(origin, tp)
 		q.collision_mask = 1 << 0
+		var ray_start_us := Time.get_ticks_usec()
 		var hit := space.intersect_ray(q)
+		_record_perf_us(&"enemy_archer_exposure_ray", ray_start_us)
 		if hit.is_empty() or origin.distance_squared_to(hit.position) >= d2 - 4.0:
 			clear += 1
+	_record_perf_us(&"enemy_archer_exposure", start_us)
 	return float(clear) / float(offsets.size())
