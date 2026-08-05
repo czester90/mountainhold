@@ -137,12 +137,15 @@ func _register(list: Array[Node], unit: Node) -> void:
 	if list.has(unit):
 		return
 	list.append(unit)
+	_invalidate_spatial_cache()
 	var callback := Callable(self, "_on_unit_tree_exiting").bind(unit)
 	if not unit.tree_exiting.is_connected(callback):
 		unit.tree_exiting.connect(callback, CONNECT_ONE_SHOT)
 
 func _unregister(list: Array[Node], unit: Node) -> void:
-	list.erase(unit)
+	if list.has(unit):
+		list.erase(unit)
+		_invalidate_spatial_cache()
 
 func _on_unit_tree_exiting(unit: Node) -> void:
 	_enemies.erase(unit)
@@ -151,6 +154,7 @@ func _on_unit_tree_exiting(unit: Node) -> void:
 	_ladders.erase(unit)
 	if _player == unit:
 		_player = null
+	_invalidate_spatial_cache()
 
 func _sync_once_per_frame() -> void:
 	var frame := _frame_key()
@@ -235,6 +239,9 @@ func _ensure_spatial_grid() -> void:
 	for ally in _allies:
 		_add_to_grid(_ally_grid, ally)
 	_grid_frame = frame
+
+func _invalidate_spatial_cache() -> void:
+	_grid_frame = -1
 
 func _add_to_grid(grid: Dictionary, unit: Node) -> void:
 	if unit == null or not is_instance_valid(unit) or not unit is Node3D:

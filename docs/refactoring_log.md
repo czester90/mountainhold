@@ -213,3 +213,41 @@ Remaining risk:
 
 - Some non-combat/fortress scans intentionally remain outside P0-014, especially castle slots/model/navigation groups.
 - Full `make test` remains blocked by the previously recorded `siege_smoke_test.gd` hang/crash behavior.
+
+## 2026-08-05 — P1-001 Add Spatial Query Correctness Tests
+
+Status: DONE.
+
+Files changed:
+
+- `scripts/core/combat_registry.gd`
+- `test/combat_registry_test.gd`
+- `docs/refactoring_backlog.md`
+- `docs/refactoring_log.md`
+
+Summary:
+
+- Expanded `CombatRegistry` tests to cover flat-radius enemy lookup across grid cells, enemy/allied team separation, include flags, player inclusion, staged enemy filtering, hidden filtering, invalid-height filtering, and group-filtered enemy queries.
+- Added a register/unregister spatial query regression test that exposed stale grid cache after unregistering a unit in the same frame.
+- Fixed stale spatial grid results by invalidating the registry grid cache on register, unregister, and tree-exit cleanup.
+- Marked P1-001 complete and selected P1-002 centralized threat evaluation as the next task.
+
+Validation:
+
+- `make test-target TEST=res://test/combat_registry_test.gd` passed: 6 test cases, 0 failures.
+- `make test-target TEST=res://test/enemy_test.gd` passed: 12 test cases, 0 failures.
+- `make test-target TEST=res://test/wave_spawner_test.gd` passed: 3 test cases, 0 failures.
+
+Observed warnings:
+
+- GdUnit remote debugger still attempts invalid port `127.0.0.1:0`.
+- `enemy_test.gd` still reports Godot cleanup/resource leak warnings after successful exit.
+
+Behavior changes:
+
+- Fixed a stale registry grid cache edge case: same-frame spatial queries now reflect manual register/unregister/tree-exit changes.
+
+Remaining risk:
+
+- Full `make test` remains blocked by the previously recorded `siege_smoke_test.gd` hang/crash behavior.
+- Target priority itself is not centralized yet; it belongs to P1-002.

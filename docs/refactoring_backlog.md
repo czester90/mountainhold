@@ -201,11 +201,11 @@ Observed warnings and issues:
 - Problem: Performance optimizations can silently drop valid targets or include invalid units.
 - Affected files: `scripts/core/combat_registry.gd`, `test/*`.
 - Expected result: Tests cover local radius, caps, team filters, staged enemies, dead enemies, and target priority.
-- Implementation notes: Use small deterministic fake nodes.
+- Implementation notes: Added deterministic fake-node tests for flat-radius lookup across grid cells, team filters, staged/hidden/invalid units, include flags, player inclusion, group-filtered enemies, and register/unregister grid invalidation.
 - Dependencies: P0-014.
 - Risk: low.
 - Test strategy: new focused GdUnit tests.
-- Status: TODO.
+- Status: DONE.
 
 ### P1-002 — Centralize Threat Evaluation
 
@@ -440,6 +440,6 @@ Observed warnings and issues:
 
 ## First Selected Task
 
-Next implementation task: P1-001 — Add Spatial Query Correctness Tests.
+Next implementation task: P1-002 — Centralize Threat Evaluation.
 
-Reason: P0-014 moved more hotpath combat lookups behind `CombatRegistry`. P1-001 should now lock registry radius/group/staged/dead behavior with focused tests before tuning threat evaluation or AI scheduling.
+Reason: P1-001 locked the registry spatial-query contract and fixed stale grid invalidation. P1-002 can now introduce threat scoring on top of reliable candidate lists without changing broad unit search behavior.
