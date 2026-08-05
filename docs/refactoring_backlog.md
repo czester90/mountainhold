@@ -377,11 +377,11 @@ Observed warnings and issues:
 - Problem: Wall/tower/keep movement regressions are currently caught mostly by manual play.
 - Affected files: `test/*`, `scripts/castle/**`, `scripts/enemy/**`.
 - Expected result: Tests cover ground-to-ladder, ladder-to-wall, wall-to-tower, wall-to-gate, and wall-to-keep routes.
-- Implementation notes: Prefer graph-level tests first, then scene smoke.
+- Implementation notes: Added scene-backed graph route coverage for ground-to-ladder, wall-to-tower, wall-to-gate, gate-to-keep, and wall-to-keep, and connected generated stair/wall/courtyard graph gaps.
 - Dependencies: P0-008, P0-011.
 - Risk: medium.
 - Test strategy: deterministic graph route tests plus limited scene tests.
-- Status: TODO.
+- Status: DONE.
 
 ### P2-001 — Add Defender Sector Orders
 

@@ -196,6 +196,7 @@ func build() -> void:
 	_place_keep()
 	_place_stair_tower()
 	_place_cave()
+	_register_courtyard_navigation()
 	_rebuild_navigation_region()
 	_register_fortress_regions()
 	print("fortress: base=%.1f, %d modules" % [_base, gen().get_child_count()])
@@ -241,6 +242,12 @@ func _register_nav_edge(node: Node, a: Vector3, b: Vector3) -> void:
 	_ensure_castle_model().register_navigation_edge(node)
 	_register_navigation_link(node, a, b)
 	_register_navigation_strip(a, b)
+
+func _register_free_nav_edge(edge_name: String, a: Vector3, b: Vector3) -> void:
+	var edge := Node3D.new()
+	edge.name = edge_name
+	gen().add_child(edge)
+	_register_nav_edge(edge, a, b)
 
 func _register_navigation_link(owner: Node, a: Vector3, b: Vector3) -> void:
 	var link := NavigationLink3D.new()
@@ -401,10 +408,7 @@ func _register_module_nav_edge(module: CastleModule, a_snap: String, b_snap: Str
 func _register_vertical_nav_edge(module: CastleModule, local_xz: Vector3, from_y: float, to_y: float) -> void:
 	var a := module.global_transform * Vector3(local_xz.x, from_y, local_xz.z)
 	var b := module.global_transform * Vector3(local_xz.x, to_y, local_xz.z)
-	var edge := Node3D.new()
-	edge.name = "NavigationEdge"
-	gen().add_child(edge)
-	_register_nav_edge(edge, a, b)
+	_register_free_nav_edge("NavigationEdge", a, b)
 
 # terrain height at a world point (falls back to flat base if no terrain)
 func _ground(x: float, z: float) -> float:
@@ -611,4 +615,27 @@ func _stone_stair(a: Vector3, b: Vector3, dir: Vector3) -> void:
 	var offset := wall_def.thickness * 0.5 + sd.width * 0.5
 	var foot := m + inner * offset - dir * (run_len * 0.5)
 	s.global_transform = Transform3D(Basis(Vector3.UP, yaw), Vector3(foot.x, _ground(foot.x, foot.z), foot.z))
-	_register_nav_edge(s, s.global_transform * s.snap("StairEntry").transform.origin, s.global_transform * s.snap("StairExit").transform.origin)
+	var stair_entry: Vector3 = s.global_transform * s.snap("StairEntry").transform.origin
+	var stair_exit: Vector3 = s.global_transform * s.snap("StairExit").transform.origin
+	_register_nav_edge(s, stair_entry, stair_exit)
+	_register_free_nav_edge("StairWallConnector", stair_exit, b)
+
+func _register_courtyard_navigation() -> void:
+	var causeway_foot := Vector3(326.0, _ground(326.0, CZ) + 0.3, CZ)
+	var causeway_top := Vector3(344.0, _ground(344.0, CZ) + 0.3, CZ)
+	var keep_front_x := KEEP_X - keep_def.depth * 0.5
+	var keep_ground := Vector3(KEEP_X, _ground(keep_front_x, CZ), CZ)
+	for edge in _ensure_castle_model().navigation_edges:
+		if not edge is Node or not is_instance_valid(edge):
+			continue
+		var edge_node := edge as Node
+		if not edge_node.has_meta("nav_a") or not edge_node.has_meta("nav_b"):
+			continue
+		var a: Vector3 = edge_node.get_meta("nav_a")
+		var b: Vector3 = edge_node.get_meta("nav_b")
+		if absf(a.y - b.y) < 2.0:
+			continue
+		var low := a if a.y < b.y else b
+		if low.x >= CX - WALL_R - 5.0 and low.x <= CX - WALL_R + 18.0 and absf(low.z - CZ) >= 10.0:
+			_register_free_nav_edge("OuterStairCourtyardConnector", low, causeway_foot)
+	_register_free_nav_edge("CausewayKeepConnector", causeway_top, keep_ground)

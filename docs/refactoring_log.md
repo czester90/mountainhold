@@ -818,3 +818,32 @@ Behavior changes:
 Remaining risk:
 
 - Route reachability remains graph-level work for P1-017.
+
+## P1-017 — Add Navigation Scenario Tests
+
+Files changed:
+
+- `scripts/castle/fortress_generator.gd`
+- `test/fortress_navigation_test.gd`
+- `docs/refactoring_backlog.md`
+- `docs/refactoring_log.md`
+
+Summary:
+
+- Added scene-backed graph route tests for ground-to-ladder, wall-to-tower, wall-to-gate, gate-to-keep, and wall-to-keep movement.
+- Added explicit stair-to-wall connectors so ladder and wall-walk positions join the generated graph instead of relying on near-distance guesses.
+- Added explicit courtyard connectors from outer stair feet to the causeway and from the causeway top to the keep ground entry.
+- Reused the generated `CastleModel` slots as route landmarks, so the tests follow the actual fortress data used by AI.
+
+Validation:
+
+- `git diff --check` passed.
+- `make test-target TEST=res://test/fortress_navigation_test.gd` passed: 2 test cases, 0 failures.
+
+Behavior changes:
+
+- Units that reach the wall now have graph routes onward to tower/gate/keep landmarks instead of receiving empty paths.
+
+Remaining risk:
+
+- P0 graph/API cleanup should still replace broad local graph jumps with a cleaner authored connection API.
