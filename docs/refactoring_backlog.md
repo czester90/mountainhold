@@ -256,11 +256,11 @@ Observed warnings and issues:
 - Problem: Enemies can bunch near ladders or look idle if queue/capacity behavior is implicit.
 - Affected files: `scripts/enemy/siege_ladder.gd`, `scripts/enemy/ladder_assault_brain.gd`, `scripts/enemy/wall_assault_brain.gd`.
 - Expected result: Queue position, max climbers, retry delay, and fallback objective are explicit.
-- Implementation notes: Preserve current “many ladders available” behavior but make arbitration visible.
+- Implementation notes: Added explicit `max_queue_size`, `can_queue()`, and `reserve_queue()` on ladders. Ladder brain now reserves a queue slot when entry/climb capacity is full, and enemies move toward their queue point instead of returning to idle.
 - Dependencies: P1-004, P1-005.
 - Risk: medium.
 - Test strategy: multi-enemy/multi-ladder queue tests.
-- Status: TODO.
+- Status: DONE.
 
 ### P1-007 — Add Ladder Scenario Tests
 

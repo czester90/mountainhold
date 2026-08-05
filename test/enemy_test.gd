@@ -8,6 +8,7 @@ const Enemy := preload("res://scenes/enemy/enemy.tscn")
 const LadderOrc := preload("res://scenes/enemy/enemy_ladder_orc.tscn")
 const Ram := preload("res://scenes/enemy/enemy_ram.tscn")
 const SiegeLadder := preload("res://scenes/enemy/siege_ladder.tscn")
+const LadderAssaultBrainScript := preload("res://scripts/enemy/ladder_assault_brain.gd")
 
 func _spawn() -> CharacterBody3D:
 	var e: CharacterBody3D = auto_free(Enemy.instantiate())
@@ -180,6 +181,37 @@ func test_ladder_destroy_clears_reservations() -> void:
 	assert_int(summary["entry"]).is_equal(0)
 	assert_int(summary["queued"]).is_equal(0)
 	assert_str(summary["state"]).is_equal("destroyed")
+
+func test_ladder_queue_is_explicit_when_capacity_full() -> void:
+	var first := _spawn()
+	var second := _spawn()
+	var ladder: Node3D = auto_free(SiegeLadder.instantiate())
+	var brain: Node = auto_free(LadderAssaultBrainScript.new())
+	add_child(ladder)
+	add_child(brain)
+	await await_millis(30)
+	ladder.set("climb_capacity", 1)
+	ladder.call("deploy", Vector3.ZERO, Vector3(3.0, 8.0, 0.0), Vector3.FORWARD)
+	assert_bool(ladder.call("reserve_entry", first)).is_true()
+	assert_bool(brain.call("reserve_entry", ladder, second)).is_false()
+	var status: Dictionary = ladder.call("debug_unit_status", second)
+	assert_bool(status["unit_queued"]).is_true()
+	assert_int(status["queued_units"]).is_equal(1)
+	assert_int(status["unit_queue_slot"]).is_equal(0)
+
+func test_ladder_queue_capacity_blocks_extra_units() -> void:
+	var first := _spawn()
+	var second := _spawn()
+	var ladder: Node3D = auto_free(SiegeLadder.instantiate())
+	add_child(ladder)
+	await await_millis(30)
+	ladder.set("max_queue_size", 1)
+	ladder.call("deploy", Vector3.ZERO, Vector3(3.0, 8.0, 0.0), Vector3.FORWARD)
+	assert_bool(ladder.call("reserve_queue", first)).is_true()
+	assert_bool(ladder.call("reserve_queue", second)).is_false()
+	var summary: Dictionary = ladder.call("debug_summary")
+	assert_int(summary["queued"]).is_equal(1)
+	assert_int(summary["queue_capacity"]).is_equal(1)
 
 func test_ladder_orc_ai_debug_snapshot_reports_crew_state() -> void:
 	var e: CharacterBody3D = auto_free(LadderOrc.instantiate())

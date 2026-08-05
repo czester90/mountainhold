@@ -515,3 +515,38 @@ Remaining risk:
 
 - Queue arbitration is still implicit; P1-006 should make retry/capacity/slot behavior clearer so enemies do not look idle at full ladders.
 - Full `make test` remains blocked by the previously recorded `siege_smoke_test.gd` hang/crash behavior.
+
+## 2026-08-05 — P1-006 Ladder Queue And Capacity Rules
+
+Status: DONE for explicit queue capacity and movement.
+
+Files changed:
+
+- `scripts/enemy/siege_ladder.gd`
+- `scripts/enemy/ladder_assault_brain.gd`
+- `scripts/enemy/enemy.gd`
+- `test/enemy_test.gd`
+- `docs/refactoring_backlog.md`
+- `docs/refactoring_log.md`
+
+Summary:
+
+- Added explicit ladder queue capacity via `max_queue_size`, `can_queue()`, and `reserve_queue()`.
+- Made ladder brain reserve queue slots when entry/climb capacity is full.
+- Changed enemy ladder approach so queued enemies move to their queue point instead of falling back to idle.
+- Exposed `queue_capacity`, `queued_units`, and per-unit queue slot in ladder debug.
+- Added tests for full-capacity queue reservation and queue capacity blocking.
+- Marked P1-006 complete. P1-007 ladder scenario tests is next.
+
+Validation:
+
+- `make test-target TEST=res://test/enemy_test.gd` passed: 16 test cases, 0 failures.
+
+Behavior changes:
+
+- Enemies that cannot enter a full ladder now reserve and move toward a queue slot, making the “waiting at ladders” state intentional and visible.
+
+Remaining risk:
+
+- Scenario-level coverage still needs to verify approach, queue, climb, landing, and invalid-ladder switching together.
+- Full `make test` remains blocked by the previously recorded `siege_smoke_test.gd` hang/crash behavior.

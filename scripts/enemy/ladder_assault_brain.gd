@@ -82,6 +82,9 @@ func reserve_or_queue(ladder: Node, unit: Node) -> bool:
 	if ladder.has_method("reserve_climb") and bool(ladder.call("reserve_climb", unit)):
 		_last_reason = "reserved"
 		return true
+	if ladder.has_method("reserve_queue") and bool(ladder.call("reserve_queue", unit)):
+		_last_reason = "queued"
+		return false
 	_last_reason = "queued"
 	return false
 
@@ -95,6 +98,9 @@ func reserve_entry(ladder: Node, unit: Node) -> bool:
 	if ladder.has_method("has_entry_reservation") and bool(ladder.call("has_entry_reservation", unit)):
 		_last_reason = "entry"
 		return true
+	if ladder.has_method("reserve_queue") and bool(ladder.call("reserve_queue", unit)):
+		_last_reason = "queued"
+		return false
 	_last_reason = "queued"
 	return false
 

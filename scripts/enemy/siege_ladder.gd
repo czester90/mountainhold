@@ -14,6 +14,7 @@ enum LadderState {
 
 @export var max_hp: float = 480.0
 @export var climb_capacity: int = 3
+@export var max_queue_size: int = 18
 @export var climb_speed: float = 4.2
 
 const CollisionLayers := preload("res://scripts/core/collision_layers.gd")
@@ -90,11 +91,27 @@ func can_reserve_entry(unit: Node) -> bool:
 		return true
 	return active_climbers.size() + entry_reservations.size() < climb_capacity
 
+func can_queue(unit: Node) -> bool:
+	_prune_queue_slots()
+	if not is_deployed() or not is_instance_valid(unit):
+		return false
+	if queue_slots.has(unit.get_instance_id()):
+		return true
+	return queue_slots.size() < max_queue_size
+
 func reserve_entry(unit: Node) -> bool:
 	if not can_reserve_entry(unit):
 		return false
 	entry_reservations[unit.get_instance_id()] = {"unit": unit, "time": 0.0}
 	queue_slots.erase(unit.get_instance_id())
+	return true
+
+func reserve_queue(unit: Node) -> bool:
+	if not can_queue(unit):
+		return false
+	var id := unit.get_instance_id()
+	if not queue_slots.has(id):
+		queue_slots[id] = {"unit": unit, "slot": _first_free_queue_slot(), "retry": 0.0}
 	return true
 
 func has_entry_reservation(unit: Node) -> bool:
@@ -153,6 +170,7 @@ func debug_summary() -> Dictionary:
 		"name": name,
 		"hp": hp,
 		"capacity": climb_capacity,
+		"queue_capacity": max_queue_size,
 		"climbing": active_climber_count(),
 		"entry": entry_count(),
 		"queued": queue_count(),
@@ -174,6 +192,7 @@ func debug_unit_status(unit: Node) -> Dictionary:
 		"hp": hp,
 		"deployed": _deployed,
 		"capacity": climb_capacity,
+		"queue_capacity": max_queue_size,
 		"active_climbers": active_climber_count(),
 		"entry_reservations": entry_count(),
 		"queued_units": queue_count(),
@@ -280,8 +299,10 @@ func queue_point_for_unit(unit: Node) -> Vector3:
 	if unit == null or not is_instance_valid(unit):
 		return queue_point(0)
 	var id := unit.get_instance_id()
+	if not queue_slots.has(id) and can_queue(unit):
+		reserve_queue(unit)
 	if not queue_slots.has(id):
-		queue_slots[id] = {"unit": unit, "slot": _first_free_queue_slot()}
+		return queue_point(maxi(max_queue_size - 1, 0))
 	return queue_point(int(queue_slots[id].get("slot", 0)))
 
 func _first_free_queue_slot() -> int:
@@ -289,7 +310,7 @@ func _first_free_queue_slot() -> int:
 	for value in queue_slots.values():
 		if value is Dictionary:
 			used[int(value.get("slot", 0))] = true
-	for i in 18:
+	for i in max_queue_size:
 		if not used.has(i):
 			return i
 	return queue_slots.size()

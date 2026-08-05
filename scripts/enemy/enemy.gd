@@ -278,12 +278,14 @@ func _approach_ladder_entry_or_climb(ladder: Node, foot: Vector3, top: Vector3, 
 			_cached_active_ladder = null
 			_ladder_search_t = 0.0
 			_set_ai_state(EnemyAIState.QUEUING_LADDER)
-			return false
+			return _move_to_ladder_queue(ladder, delta)
 	elif ladder.has_method("reserve_entry") and not bool(ladder.call("reserve_entry", self)):
 		_cached_active_ladder = null
 		_ladder_search_t = 0.0
 		_set_ai_state(EnemyAIState.QUEUING_LADDER)
-		return false
+		if ladder.has_method("reserve_queue"):
+			ladder.call("reserve_queue", self)
+		return _move_to_ladder_queue(ladder, delta)
 	if bool(_ladder_brain.call("reserve_or_queue", ladder, self) if _ladder_brain != null else ladder.call("reserve_climb", self)):
 		if _start_ladder_traversal(ladder, foot, top, climb_speed):
 			return true
@@ -292,7 +294,23 @@ func _approach_ladder_entry_or_climb(ladder: Node, foot: Vector3, top: Vector3, 
 	if ladder.has_method("release_entry"):
 		ladder.call("release_entry", self)
 	_set_ai_state(EnemyAIState.QUEUING_LADDER)
-	return false
+	if ladder.has_method("reserve_queue"):
+		ladder.call("reserve_queue", self)
+	return _move_to_ladder_queue(ladder, delta)
+
+func _move_to_ladder_queue(ladder: Node, delta: float) -> bool:
+	var queue: Vector3 = _ladder_brain.call("queue_point", ladder, self) if _ladder_brain != null and _ladder_brain.has_method("queue_point") else (ladder.call("queue_point_for_unit", self) if ladder != null and ladder.has_method("queue_point_for_unit") else Vector3.INF)
+	if queue == Vector3.INF:
+		return false
+	var to_queue := queue - global_position
+	to_queue.y = 0.0
+	var dist := to_queue.length()
+	if dist <= 0.35:
+		_idle(delta)
+		return true
+	var dir := _avoidance_direction(to_queue / maxf(dist, 0.001))
+	_move_direction(dir, delta)
+	return true
 
 func _best_active_ladder() -> Node:
 	_ladder_search_t = maxf(0.0, _ladder_search_t - get_physics_process_delta_time())
