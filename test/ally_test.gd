@@ -169,6 +169,22 @@ func test_order_rally_does_not_move_without_floor() -> void:
 	a._move_to_order_rally(1.0)
 	assert_vector(a.global_position).is_equal(Vector3(289.0, 27.0, 500.0))
 
+func test_defender_state_tracks_order_lifecycle() -> void:
+	var a: Node3D = auto_free(Ally.instantiate())
+	add_child(a)
+	await await_millis(30)
+	assert_str(str(a.call("defender_state"))).is_equal("idle")
+	a.global_position = Vector3(280.0, 27.0, 500.0)
+	a.set_defender_order(AllyArcher.ORDER_DEFEND_GATE, Vector3(284.0, 27.0, 500.0))
+	assert_str(str(a.call("defender_state"))).is_equal("moving_to_order")
+	a.global_position = Vector3(284.0, 27.0, 500.0)
+	a.call("_refresh_defender_state")
+	assert_str(str(a.call("defender_state"))).is_equal("holding_order")
+	a.set_defender_order(AllyArcher.ORDER_RETREAT_KEEP, Vector3(345.0, 32.0, 500.0), 1)
+	assert_str(str(a.call("defender_state"))).is_equal("retreating")
+	var snapshot: Dictionary = a.call("defender_debug_snapshot")
+	assert_str(str(snapshot["state"])).is_equal("retreating")
+
 func test_retreat_from_gate_roof_routes_through_courtyard() -> void:
 	var a: Node3D = auto_free(Ally.instantiate())
 	add_child(a)

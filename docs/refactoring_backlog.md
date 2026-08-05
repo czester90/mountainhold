@@ -80,11 +80,11 @@ Observed warnings and issues:
 - Problem: Allied archers choose targets/positions through distributed logic that is hard to tune for hundreds of enemies.
 - Affected files: `scripts/ally/ally_archer.gd`, `scripts/ally/archer_shooting.gd`, `scripts/ally/defender_targeting.gd`, `scripts/ally/defender_positioning.gd`, `scripts/ally/defender_orders.gd`.
 - Expected result: Defender states such as `HOLDING_SLOT`, `AIMING`, `REPOSITIONING`, `RETREATING`, `DOWNED` make behavior predictable.
-- Implementation notes: Start with read-only state reporting, then migrate target/position decisions.
+- Implementation notes: Added `DefenderState` with explicit idle, moving, holding, engaging, repositioning, retreating, stuck, and dead states; wired order/movement/combat transitions into `AllyArcher` debug reporting.
 - Dependencies: P0-001, P0-014.
 - Risk: medium.
 - Test strategy: defender positioning/targeting tests and manual wall defense scenario.
-- Status: TODO.
+- Status: DONE.
 
 ### P0-005 — Reduce Large Unit Responsibilities
 

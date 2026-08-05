@@ -9,6 +9,7 @@ extends CharacterBody3D
 const CollisionLayers := preload("res://scripts/core/collision_layers.gd")
 const UnitLocomotionScript := preload("res://scripts/core/unit_locomotion.gd")
 const DefenderPositioningScript := preload("res://scripts/ally/defender_positioning.gd")
+const DefenderStateScript := preload("res://scripts/ally/defender_state.gd")
 const ArcherShootingScript := preload("res://scripts/ally/archer_shooting.gd")
 const DefenderTargetingScript := preload("res://scripts/ally/defender_targeting.gd")
 const CastlePathfinderScript := preload("res://scripts/castle/castle_pathfinder.gd")
@@ -88,6 +89,7 @@ var _last_progress_pos: Vector3 = Vector3.INF
 var _stuck_t: float = 0.0
 var _locomotion: Node = null
 var _positioning: Node = null
+var _defender_state: RefCounted = null
 var _shooting: Node = null
 var _defender_targeting: Node = null
 var _castle_pathfinder: Node = null
@@ -117,6 +119,7 @@ func _ready() -> void:
 	_setup_character_physics()
 	_setup_locomotion()
 	_setup_positioning()
+	_setup_defender_state()
 	_setup_shooting()
 	_setup_defender_targeting()
 	_setup_castle_pathfinder()
@@ -168,6 +171,10 @@ func _setup_positioning() -> void:
 	_positioning = DefenderPositioningScript.new()
 	_positioning.name = "DefenderPositioning"
 	add_child(_positioning)
+
+func _setup_defender_state() -> void:
+	_defender_state = DefenderStateScript.new()
+	_defender_state.set_state(DefenderStateScript.IDLE, &"spawn")
 
 func _setup_shooting() -> void:
 	_shooting = ArcherShootingScript.new()
@@ -244,6 +251,7 @@ func take_damage(amount: float, _from_pos: Vector3 = Vector3.INF) -> void:
 
 func _die() -> void:
 	_dead = true
+	_set_defender_state(DefenderStateScript.DEAD, &"dead")
 	_release_firing_slot()
 	remove_from_group("ally")               # enemy targeting + player stop aiming at the corpse
 	set_physics_process(false)
@@ -269,6 +277,7 @@ func _physics_process(delta: float) -> void:
 	_move_to_order_rally(delta)
 	_separate_from_units(delta)
 	if _is_retreating_to_keep():
+		_set_defender_state(DefenderStateScript.RETREATING, &"retreat")
 		_release_firing_slot()
 		_current_target = null
 		_last_has_los = false
@@ -285,6 +294,7 @@ func _physics_process(delta: float) -> void:
 		_last_debug_reason = &"no_target"
 	if _current_target:
 		_reposition_for_target(delta, _current_target)
+	_refresh_defender_state()
 	_cd -= delta
 	if _cd > 0.0:
 		if _current_target:
@@ -300,9 +310,11 @@ func _physics_process(delta: float) -> void:
 		return
 	if not _last_has_los and not (_last_forced_gate_threat and _is_gate_defender() and _is_gate_threat(target)):
 		_last_debug_reason = &"no_los"
+		_refresh_defender_state()
 		return
 	_cd = fire_interval
 	_last_debug_reason = &"shoot"
+	_set_defender_state(DefenderStateScript.ENGAGING, &"shoot")
 	_shoot_at(target)
 
 func _acquire() -> Node3D:
@@ -369,6 +381,8 @@ func set_defender_order(mode: int, rally: Vector3 = Vector3.INF, seq: int = 0) -
 	_order_rally = rally
 	_order_seq = seq
 	_target_refresh_t = 0.0
+	if _defender_state != null:
+		_defender_state.apply_order(_order_mode, _order_rally)
 	if _nav_agent and rally.x < 1.0e19:
 		_nav_agent.target_position = rally
 		_nav_path = _build_nav_path_to(rally)
@@ -378,6 +392,7 @@ func set_defender_order(mode: int, rally: Vector3 = Vector3.INF, seq: int = 0) -
 		_last_progress_pos = global_position
 	_stuck_t = 0.0
 	_nav_debug_state = &"moving" if rally.x < 1.0e19 else &"idle"
+	_refresh_defender_state()
 
 func _move_to_order_rally(delta: float) -> void:
 	if _order_rally.x >= 1.0e19:
@@ -386,6 +401,7 @@ func _move_to_order_rally(delta: float) -> void:
 		return
 	if _nav_path.is_empty():
 		_nav_debug_state = &"unreachable"
+		_set_defender_state(DefenderStateScript.STUCK, &"unreachable")
 		return
 	var desired := _nav_path[mini(_nav_index, _nav_path.size() - 1)]
 	if global_position.distance_squared_to(desired) <= 0.49:
@@ -400,6 +416,7 @@ func _move_with_native_navigation(delta: float, speed_value: float) -> bool:
 		return false
 	if _nav_agent.is_navigation_finished():
 		_nav_debug_state = &"arrived"
+		_refresh_defender_state()
 		_nav_driver = &"native"
 		_apply_character_velocity(Vector3.ZERO, delta)
 		return true
@@ -441,12 +458,14 @@ func _reposition_for_target(delta: float, target: Node3D) -> void:
 		_move_to_gate_edge(delta)
 		_last_has_los = false
 		_last_debug_reason = &"gate_edge"
+		_set_defender_state(DefenderStateScript.REPOSITIONING, &"gate_edge")
 		return
 	_last_has_los = false
 	_release_firing_slot()
 	_last_aim_point = target.global_position + Vector3.UP * _targeting.aim_height
 	_last_has_los = true
 	_last_debug_reason = &"has_target"
+	_set_defender_state(DefenderStateScript.ENGAGING, &"has_target")
 
 func _build_nav_path_to(rally: Vector3) -> Array[Vector3]:
 	if rally.x >= 1.0e19:
@@ -819,6 +838,7 @@ func _track_navigation_progress(delta: float) -> void:
 		if _nav_debug_state != &"stuck":
 			_stuck_event_count += 1
 		_nav_debug_state = &"stuck"
+		_set_defender_state(DefenderStateScript.STUCK, &"stuck")
 
 func _recover_to_walkable_surface() -> void:
 	_recovery_count += 1
@@ -833,9 +853,41 @@ func _recover_to_walkable_surface() -> void:
 	global_position = hit.position + Vector3.UP * 0.05
 	velocity = Vector3.ZERO
 	_nav_debug_state = &"recovered"
+	_refresh_defender_state()
 
 func navigation_debug_state() -> StringName:
 	return _nav_debug_state
+
+func defender_state() -> StringName:
+	return _defender_state.current_state() if _defender_state != null else DefenderStateScript.IDLE
+
+func _set_defender_state(state: StringName, reason: StringName = &"") -> void:
+	if _defender_state != null:
+		_defender_state.set_state(state, reason)
+
+func _refresh_defender_state() -> void:
+	if _defender_state == null or _dead:
+		return
+	if _nav_debug_state == &"stuck" or _nav_debug_state == &"unreachable":
+		_set_defender_state(DefenderStateScript.STUCK, _nav_debug_state)
+		return
+	if _is_retreating_to_keep():
+		_set_defender_state(DefenderStateScript.RETREATING, &"retreat")
+		return
+	if _current_target != null and is_instance_valid(_current_target):
+		if _last_debug_reason == &"gate_edge" or _bad_shot_reposition_t > 0.0:
+			_set_defender_state(DefenderStateScript.REPOSITIONING, _last_debug_reason)
+		else:
+			_set_defender_state(DefenderStateScript.ENGAGING, _last_debug_reason)
+		return
+	if _order_rally.x < 1.0e19:
+		var flat := Vector2(global_position.x - _order_rally.x, global_position.z - _order_rally.z)
+		if flat.length() > 1.2:
+			_set_defender_state(DefenderStateScript.MOVING_TO_ORDER, &"moving")
+		else:
+			_set_defender_state(DefenderStateScript.HOLDING_ORDER, &"holding")
+		return
+	_set_defender_state(DefenderStateScript.IDLE, &"idle")
 
 func navigation_debug_driver() -> StringName:
 	return _nav_driver
@@ -995,6 +1047,7 @@ func defender_debug_snapshot() -> Dictionary:
 		"name": display_name,
 		"level": level,
 		"kills": kills,
+		"state": str(defender_state()),
 		"order": _order_mode,
 		"nav": str(_nav_debug_state),
 		"driver": str(_nav_driver),

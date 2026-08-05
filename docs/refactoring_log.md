@@ -787,6 +787,36 @@ Remaining risk:
 
 - Specialized enemy archers still have a small subclass-specific ranged setup and can be normalized further in a later pass.
 
+## P0-004 — Introduce Explicit Defender State Model
+
+Files changed:
+
+- `scripts/ally/defender_state.gd`
+- `scripts/ally/ally_archer.gd`
+- `test/ally_test.gd`
+- `docs/refactoring_backlog.md`
+- `docs/refactoring_log.md`
+
+Summary:
+
+- Added a dedicated `DefenderState` model for idle, moving, holding, engaging, repositioning, retreating, stuck, and dead defender states.
+- Wired ally archer order changes, rally movement, target engagement, gate-edge repositioning, stuck detection, recovery, shooting, and death into explicit state transitions.
+- Exposed the current defender state through `defender_state()` and `defender_debug_snapshot()` for cheaper debugging during large battles.
+- Added a lifecycle test that checks order, hold, retreat, and debug snapshot state reporting.
+
+Validation:
+
+- `git diff --check` passed.
+- `make test-target TEST=res://test/ally_test.gd` passed assertions: 18 test cases, 0 failures, then exited 101 with the existing orphan/resource cleanup leak.
+
+Behavior changes:
+
+- No intentional combat tuning change; defender behavior now reports a predictable coarse state instead of only scattered debug flags.
+
+Remaining risk:
+
+- P0-005 should continue by extracting more movement/targeting responsibility out of `AllyArcher`.
+
 ## P1-016 — Add Fortress Validation Tool
 
 Files changed:
