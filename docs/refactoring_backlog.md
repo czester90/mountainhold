@@ -69,11 +69,11 @@ Observed warnings and issues:
 - Problem: Enemy AI currently relies on scattered booleans, meta flags, timers, and brain side effects.
 - Affected files: `scripts/enemy/enemy.gd`, `scripts/enemy/infantry_enemy.gd`, `scripts/enemy/archer_enemy.gd`, `scripts/enemy/ladder_orc_enemy.gd`, `scripts/enemy/wall_assault_brain.gd`, `scripts/enemy/ladder_assault_brain.gd`, `scripts/enemy/wave_spawner.gd`.
 - Expected result: Enemy has clear states such as `STAGED`, `ADVANCING`, `ESCORTING`, `QUEUING_LADDER`, `CLIMBING`, `ON_WALL`, `ATTACKING_GATE`, `ATTACKING_KEEP`, `DEAD`.
-- Implementation notes: Add enum and transition helpers first; migrate existing checks incrementally instead of rewriting brains in one pass.
+- Implementation notes: Added enum and transition helpers first; existing behavior still uses the old execution flow while debug snapshots now expose explicit state id/name. Future tasks can migrate decisions to the enum safely.
 - Dependencies: P0-002.
 - Risk: high; state migration can break current fixes if done broadly.
 - Test strategy: unit tests for transitions, staged assault tests, ladder tests, smoke scene.
-- Status: TODO.
+- Status: DONE.
 
 ### P0-004 — Introduce Explicit Defender State Model
 
@@ -440,6 +440,6 @@ Observed warnings and issues:
 
 ## First Selected Task
 
-Next implementation task: P0-003 — Introduce Explicit Enemy State Model.
+Next implementation task: P0-014 — Complete Combat Registry Ownership.
 
-Reason: P0-010 documented the navigation ownership boundaries. P0-003 can now add an explicit enemy state enum around the existing behavior without mixing strategic assignment, route selection, movement, and ladder traversal.
+Reason: P0-003 now exposes enemy state id/name without changing behavior. P0-014 is the safest next code step for performance: centralize remaining combat queries and keep staged/dead filters consistent before deeper AI scheduling/refactors.

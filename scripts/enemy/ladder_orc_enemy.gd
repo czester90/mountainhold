@@ -67,6 +67,7 @@ func setup_ladder_carry(crew_id: int, crew_index: int, foot: Vector3, top: Vecto
 	_apply_carrying_bonus()
 	if _crew_index == 0:
 		_build_carried_ladder_visual()
+	_set_ai_state(EnemyAIState.LADDER_CARRYING)
 
 func _can_attack_gate() -> bool:
 	return false
@@ -104,6 +105,7 @@ func _physics_process(delta: float) -> void:
 	if _carrying_ladder or _deploying_ladder:
 		_update_carrying_speed()
 	if _deploying_ladder:
+		_set_ai_state(EnemyAIState.LADDER_DEPLOYING)
 		_continue_deploying_ladder(delta)
 		_idle(delta)
 		return
@@ -128,6 +130,7 @@ func _physics_process(delta: float) -> void:
 		_idle(delta)
 		return
 	if _helping_crew_id != 0 and path.size() > 1 and at_final_waypoint and dist <= 2.8:
+		_set_ai_state(EnemyAIState.LADDER_HELPING)
 		_try_join_helped_ladder()
 		_idle(delta)
 		return
@@ -180,11 +183,13 @@ func _try_deploy_crew_ladder() -> void:
 
 func _start_deploying_ladder() -> void:
 	_deploying_ladder = true
+	_set_ai_state(EnemyAIState.LADDER_DEPLOYING)
 	_deploy_t = 0.0
 	for node in get_tree().get_nodes_in_group("ladder_carrier"):
 		if node is LadderOrcEnemy and int(node.get_meta("crew_id", -1)) == _crew_id:
 			var carrier := node as LadderOrcEnemy
 			carrier._deploying_ladder = true
+			carrier._set_ai_state(EnemyAIState.LADDER_DEPLOYING)
 			carrier._deploy_t = 0.0
 			carrier.velocity = Vector3.ZERO
 
@@ -212,6 +217,7 @@ func _cancel_deploying_ladder() -> void:
 			var carrier := node as LadderOrcEnemy
 			carrier._deploying_ladder = false
 			carrier._deploy_t = 0.0
+			carrier._refresh_ai_state()
 
 func _finish_deploying_ladder() -> void:
 	_ladder_deployed = true
@@ -309,6 +315,7 @@ func _assist_ladder_crew(crew_id: int, foot: Vector3, top: Vector3, normal: Vect
 	gate_wp = -1
 	add_to_group("ladder_helper")
 	set_meta("helping_crew_id", crew_id)
+	_set_ai_state(EnemyAIState.LADDER_HELPING)
 
 func _deploy_duration_required() -> float:
 	return DEPLOY_DURATION if _living_carriers_for_crew() >= FULL_CARRIERS_TO_MOVE_FAST else SOLO_DEPLOY_DURATION
@@ -362,6 +369,7 @@ func _begin_crew_ladder_climb(delta: float) -> void:
 	if ladder == null or not is_instance_valid(ladder):
 		_climbing = false
 		_climbing_ladder = false
+		_refresh_ai_state()
 		return
 	var climb_speed := float(ladder.get("climb_speed")) if ladder.get("climb_speed") != null else 4.2
 	var foot: Vector3 = ladder.get("foot") if ladder.get("foot") != null else _ladder_foot
@@ -373,6 +381,7 @@ func _begin_crew_ladder_climb(delta: float) -> void:
 		_wait_for_ladder_queue(ladder)
 		_climbing = false
 		_climbing_ladder = false
+		_refresh_ai_state()
 
 func _try_enter_deployed_ladder(delta: float) -> bool:
 	var ladder := _ladder_prop
@@ -396,6 +405,7 @@ func _wait_for_ladder_queue(ladder: Node) -> void:
 	else:
 		path = [_ladder_foot + _ladder_normal * 0.65]
 	_wp = 0
+	_set_ai_state(EnemyAIState.QUEUING_LADDER)
 
 func _on_traversal_completed(kind: StringName, landing: Vector3) -> void:
 	super(kind, landing)
@@ -513,9 +523,15 @@ func ai_debug_snapshot() -> Dictionary:
 		"ladder_prop": _debug_node_name(_ladder_prop),
 	}
 	if _deploying_ladder:
-		snapshot["state"] = "deploying_ladder"
+		_set_ai_state(EnemyAIState.LADDER_DEPLOYING)
+		snapshot["state"] = ai_state_name()
+		snapshot["state_id"] = ai_state()
 	elif _carrying_ladder:
-		snapshot["state"] = "carrying_ladder"
+		_set_ai_state(EnemyAIState.LADDER_CARRYING)
+		snapshot["state"] = ai_state_name()
+		snapshot["state_id"] = ai_state()
 	elif _helping_crew_id != 0:
-		snapshot["state"] = "helping_ladder_crew"
+		_set_ai_state(EnemyAIState.LADDER_HELPING)
+		snapshot["state"] = ai_state_name()
+		snapshot["state_id"] = ai_state()
 	return snapshot

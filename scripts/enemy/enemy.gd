@@ -17,6 +17,26 @@ const UnitLocomotionScript := preload("res://scripts/core/unit_locomotion.gd")
 const WallAssaultBrainScript := preload("res://scripts/enemy/wall_assault_brain.gd")
 const LadderAssaultBrainScript := preload("res://scripts/enemy/ladder_assault_brain.gd")
 
+enum EnemyAIState {
+	IDLE_NO_PATH,
+	STAGED_WAITING,
+	ADVANCING,
+	WALL_ASSAULT,
+	AT_GATE,
+	ATTACKING_GATE,
+	ATTACKING_KEEP,
+	APPROACHING_LADDER,
+	QUEUING_LADDER,
+	CLIMBING_LADDER,
+	SETTLING_ON_WALL,
+	ON_WALL,
+	ATTACKING_WALL_UNIT,
+	LADDER_CARRYING,
+	LADDER_DEPLOYING,
+	LADDER_HELPING,
+	DEAD,
+}
+
 @export var speed: float = 2.3
 @export var max_hp: float = 100.0
 @export var gravity: float = 20.0
@@ -50,6 +70,7 @@ var hp: float:                                     # facade over the health comp
 var _health: HealthComponent
 var _attack_comp: AttackComponent
 var _done: bool = false
+var _ai_state: EnemyAIState = EnemyAIState.IDLE_NO_PATH
 var _attacking: bool = false
 var _wall_assault: bool = false
 var _on_wall: bool = false
@@ -133,6 +154,7 @@ func _ready() -> void:
 	_setup_wall_assault_brain()
 	_setup_ladder_assault_brain()
 	_build_body()
+	_refresh_ai_state()
 
 func _setup_locomotion() -> void:
 	_locomotion = UnitLocomotionScript.new()
@@ -229,6 +251,7 @@ func _try_use_active_ladder(delta: float) -> bool:
 	if ladder == null:
 		return false
 	_ladder_target = ladder
+	_set_ai_state(EnemyAIState.APPROACHING_LADDER)
 	var foot: Vector3 = ladder.get("foot")
 	var top: Vector3 = ladder.get("top")
 	var climb_speed: float = float(ladder.get("climb_speed"))
@@ -252,10 +275,12 @@ func _approach_ladder_entry_or_climb(ladder: Node, foot: Vector3, top: Vector3, 
 		if not bool(_ladder_brain.call("reserve_entry", ladder, self)):
 			_cached_active_ladder = null
 			_ladder_search_t = 0.0
+			_set_ai_state(EnemyAIState.QUEUING_LADDER)
 			return false
 	elif ladder.has_method("reserve_entry") and not bool(ladder.call("reserve_entry", self)):
 		_cached_active_ladder = null
 		_ladder_search_t = 0.0
+		_set_ai_state(EnemyAIState.QUEUING_LADDER)
 		return false
 	if bool(_ladder_brain.call("reserve_or_queue", ladder, self) if _ladder_brain != null else ladder.call("reserve_climb", self)):
 		if _start_ladder_traversal(ladder, foot, top, climb_speed):
@@ -264,6 +289,7 @@ func _approach_ladder_entry_or_climb(ladder: Node, foot: Vector3, top: Vector3, 
 			ladder.call("release_climb", self)
 	if ladder.has_method("release_entry"):
 		ladder.call("release_entry", self)
+	_set_ai_state(EnemyAIState.QUEUING_LADDER)
 	return false
 
 func _best_active_ladder() -> Node:
@@ -316,6 +342,7 @@ func _start_ladder_traversal(ladder: Node, foot: Vector3, top: Vector3, climb_sp
 		_wall_settle_goal = _safe_wall_point(_wall_settle_goal, top)
 		_wall_settle_t = WALL_SETTLE_TIMEOUT
 	_climbing_ladder = true
+	_set_ai_state(EnemyAIState.CLIMBING_LADDER)
 	_climb_t = 0.0
 	_climb_from = foot
 	_climb_to = top
@@ -328,6 +355,7 @@ func _on_traversal_completed(kind: StringName, landing: Vector3) -> void:
 	_climbing_ladder = false
 	_ladder_target = null
 	_on_wall = true
+	_set_ai_state(EnemyAIState.SETTLING_ON_WALL if _wall_settle_goal != Vector3.INF else EnemyAIState.ON_WALL)
 	path = [landing]
 	_wp = 0
 
@@ -337,9 +365,11 @@ func _on_traversal_failed(kind: StringName, _reason: String) -> void:
 	_climbing_ladder = false
 	_ladder_target = null
 	_last_recovery_reason = "ladder_traversal_failed:%s" % _reason
+	_refresh_ai_state()
 
 func _fight_on_wall(delta: float) -> void:
 	if _try_settle_after_ladder(delta):
+		_set_ai_state(EnemyAIState.SETTLING_ON_WALL)
 		return
 	_wall_defender_refresh_t = maxf(0.0, _wall_defender_refresh_t - delta)
 	var defender := _nearest_wall_defender()
@@ -347,10 +377,13 @@ func _fight_on_wall(delta: float) -> void:
 		if global_position.distance_to(defender.global_position) <= attack_range:
 			_attack_unit(delta, defender)
 			return
+		_set_ai_state(EnemyAIState.ON_WALL)
 		_move_towards_wall_point(defender.global_position, delta)
 		return
 	if _move_to_wall_pressure(delta):
+		_set_ai_state(EnemyAIState.ON_WALL)
 		return
+	_set_ai_state(EnemyAIState.ON_WALL)
 	_idle(delta)
 
 func _try_settle_after_ladder(delta: float) -> bool:
@@ -541,6 +574,7 @@ func _safe_wall_point(desired: Vector3, fallback: Vector3) -> Vector3:
 func _attack_unit(delta: float, defender: Node3D) -> void:
 	_atk_what = "unit"
 	_unit_attack_target = defender
+	_set_ai_state(EnemyAIState.ATTACKING_WALL_UNIT)
 	_idle(delta)
 	if _attack_comp == null:
 		return
@@ -567,6 +601,7 @@ func is_active_enemy() -> bool:
 func setup(goal: Vector3) -> void:
 	target = goal
 	path = [goal]
+	_set_ai_state(EnemyAIState.ADVANCING)
 
 # full siege route: hammer the gate, then (once breached) push through to the keep and hammer it
 func setup_path(points: Array, siege_ref: Node, gate_index: int = 0) -> void:
@@ -577,6 +612,7 @@ func setup_path(points: Array, siege_ref: Node, gate_index: int = 0) -> void:
 	_wp = 0
 	target = path[0]
 	_gate_offset = Vector3(0, 0, randf_range(-1.3, 1.3))   # fan across the gate face (< passage half-width)
+	_refresh_ai_state()
 
 func setup_wall_assault(points: Array, siege_ref: Node) -> void:
 	path = points.duplicate()
@@ -586,6 +622,7 @@ func setup_wall_assault(points: Array, siege_ref: Node) -> void:
 	_wp = 0
 	target = path[0] if not path.is_empty() else global_position
 	_gate_offset = Vector3.ZERO
+	_refresh_ai_state()
 
 func _build_body() -> void:
 	var col := CollisionShape3D.new()
@@ -600,6 +637,7 @@ func take_damage(amount: float) -> void:
 	if _done or _health == null:
 		return
 	if bool(get_meta("staged_waiting", false)):
+		_set_ai_state(EnemyAIState.STAGED_WAITING)
 		for spawner in get_tree().get_nodes_in_group("wave_spawner"):
 			if spawner.has_method("start_assault"):
 				spawner.call("start_assault")
@@ -630,6 +668,7 @@ func _die() -> void:
 	_ladder_target = null
 	_climbing_ladder = false
 	_done = true
+	_set_ai_state(EnemyAIState.DEAD)
 	remove_from_group("enemy")          # allies/targeting stop aiming at the corpse
 	collision_layer = 0                 # arrows pass through the falling body
 	set_physics_process(false)
@@ -647,6 +686,7 @@ const FALL_FLOOR := -8.0       # all legit ground is y15+; only a true through-t
 func _physics_process(delta: float) -> void:
 	if _done:
 		return
+	_refresh_ai_state()
 	if global_position.y < FALL_FLOOR:
 		_recover_to_ground()
 		return
@@ -668,6 +708,7 @@ func _physics_process(delta: float) -> void:
 		_fight_on_wall(delta)
 		return
 	if path.is_empty():
+		_set_ai_state(EnemyAIState.IDLE_NO_PATH)
 		return
 	var last := path.size() - 1
 	var tgt: Vector3 = path[mini(_wp, last)]
@@ -677,6 +718,7 @@ func _physics_process(delta: float) -> void:
 	to.y = 0.0
 	var dist := to.length()
 	_attacking = false
+	_refresh_ai_state()
 	if _wp >= last and _wall_assault:
 		if _at_wall_assault(delta, dist):
 			return
@@ -804,6 +846,7 @@ func _active_units_for_separation() -> Array:
 func _attack(delta: float, what: String) -> void:
 	_attacking = true
 	_atk_what = what
+	_set_ai_state(EnemyAIState.ATTACKING_GATE if what == "gate" else EnemyAIState.ATTACKING_KEEP)
 	_idle(delta)
 	_attack_comp.tick(delta)
 
@@ -861,7 +904,8 @@ func ai_debug_snapshot() -> Dictionary:
 	return {
 		"name": name,
 		"type_id": str(type_id),
-		"state": _debug_state(),
+		"state": ai_state_name(),
+		"state_id": _ai_state,
 		"objective": objective,
 		"waypoint": _wp,
 		"path_size": path.size(),
@@ -881,25 +925,79 @@ func ai_debug_snapshot() -> Dictionary:
 	}
 
 func _debug_state() -> String:
+	return ai_state_name()
+
+func ai_state() -> EnemyAIState:
+	return _ai_state
+
+func ai_state_name() -> String:
+	return _ai_state_name(_ai_state)
+
+func _set_ai_state(next_state: EnemyAIState) -> void:
+	_ai_state = next_state
+
+func _refresh_ai_state() -> void:
 	if _done:
-		return "dead"
-	if bool(get_meta("staged_waiting", false)):
-		return "staged_waiting"
-	if _climbing_ladder:
-		return "climbing_ladder"
-	if _on_wall:
-		if _unit_attack_target != null and is_instance_valid(_unit_attack_target):
+		_set_ai_state(EnemyAIState.DEAD)
+	elif bool(get_meta("staged_waiting", false)):
+		_set_ai_state(EnemyAIState.STAGED_WAITING)
+	elif _climbing_ladder:
+		_set_ai_state(EnemyAIState.CLIMBING_LADDER)
+	elif _on_wall:
+		if _wall_settle_goal != Vector3.INF:
+			_set_ai_state(EnemyAIState.SETTLING_ON_WALL)
+		elif _unit_attack_target != null and is_instance_valid(_unit_attack_target):
+			_set_ai_state(EnemyAIState.ATTACKING_WALL_UNIT)
+		else:
+			_set_ai_state(EnemyAIState.ON_WALL)
+	elif _attacking:
+		_set_ai_state(EnemyAIState.ATTACKING_GATE if _atk_what == "gate" else EnemyAIState.ATTACKING_KEEP)
+	elif _wall_assault:
+		_set_ai_state(EnemyAIState.WALL_ASSAULT)
+	elif _wp == gate_wp and not _gate_open():
+		_set_ai_state(EnemyAIState.AT_GATE)
+	elif path.is_empty():
+		_set_ai_state(EnemyAIState.IDLE_NO_PATH)
+	else:
+		_set_ai_state(EnemyAIState.ADVANCING)
+
+func _ai_state_name(state: EnemyAIState) -> String:
+	match state:
+		EnemyAIState.IDLE_NO_PATH:
+			return "idle_no_path"
+		EnemyAIState.STAGED_WAITING:
+			return "staged_waiting"
+		EnemyAIState.ADVANCING:
+			return "advancing"
+		EnemyAIState.WALL_ASSAULT:
+			return "wall_assault"
+		EnemyAIState.AT_GATE:
+			return "at_gate"
+		EnemyAIState.ATTACKING_GATE:
+			return "attacking_gate"
+		EnemyAIState.ATTACKING_KEEP:
+			return "attacking_keep"
+		EnemyAIState.APPROACHING_LADDER:
+			return "approaching_ladder"
+		EnemyAIState.QUEUING_LADDER:
+			return "queuing_ladder"
+		EnemyAIState.CLIMBING_LADDER:
+			return "climbing_ladder"
+		EnemyAIState.SETTLING_ON_WALL:
+			return "settling_on_wall"
+		EnemyAIState.ON_WALL:
+			return "on_wall"
+		EnemyAIState.ATTACKING_WALL_UNIT:
 			return "attacking_wall_unit"
-		return "on_wall"
-	if _attacking:
-		return "attacking_%s" % _atk_what
-	if _wall_assault:
-		return "wall_assault"
-	if _wp == gate_wp and not _gate_open():
-		return "at_gate"
-	if path.is_empty():
-		return "idle_no_path"
-	return "advancing"
+		EnemyAIState.LADDER_CARRYING:
+			return "carrying_ladder"
+		EnemyAIState.LADDER_DEPLOYING:
+			return "deploying_ladder"
+		EnemyAIState.LADDER_HELPING:
+			return "helping_ladder_crew"
+		EnemyAIState.DEAD:
+			return "dead"
+	return "unknown"
 
 func _debug_objective() -> Dictionary:
 	var current_target := Vector3.INF

@@ -134,3 +134,42 @@ Remaining risk:
 
 - The documented target contract still needs code enforcement through P0-003, P0-007, P0-008, P0-011, and P0-013.
 - Full `make test` remains blocked by the previously recorded `siege_smoke_test.gd` hang/crash behavior.
+
+## 2026-08-05 — P0-003 Introduce Explicit Enemy State Model
+
+Status: DONE as a first safe state layer.
+
+Files changed:
+
+- `scripts/enemy/enemy.gd`
+- `scripts/enemy/ladder_orc_enemy.gd`
+- `test/enemy_test.gd`
+- `docs/refactoring_backlog.md`
+- `docs/refactoring_log.md`
+
+Summary:
+
+- Added `EnemyAIState` enum covering idle, staged, advancing, wall assault, gate/keep attacks, ladder approach/queue/climb, wall settling, on-wall fighting, ladder crew logistics, and death.
+- Added `_ai_state`, `_set_ai_state()`, `_refresh_ai_state()`, `ai_state()`, and `ai_state_name()` to expose explicit state id/name.
+- Updated `ai_debug_snapshot()` to report `state_id` from the enum and `state` from `ai_state_name()`.
+- Wired key existing transitions into the enum: setup path, wall assault setup, staged damage, ladder approach/queue/climb, traversal completion/failure, wall unit attack, gate/keep attack, recovery-adjacent refresh, and death.
+- Extended ladder-orc state reporting for carrying, deploying, helping, and queueing ladder flow without rewriting its behavior.
+- Marked P0-003 complete and selected P0-014 combat registry ownership as the next performance-safe step.
+
+Validation:
+
+- `make test-target TEST=res://test/enemy_test.gd` passed: 12 test cases, 0 failures.
+
+Observed warnings:
+
+- GdUnit remote debugger still attempts invalid port `127.0.0.1:0`.
+- Test run still reports Godot cleanup/resource leak warnings after successful exit.
+
+Behavior changes:
+
+- None intended. Existing AI branches still drive movement/combat; the enum is currently an explicit state layer and diagnostic contract.
+
+Remaining risk:
+
+- Some tactical decisions still read old booleans/path state directly. Later tasks should migrate decision branches to `EnemyAIState` only after targeted coverage exists.
+- Full `make test` remains blocked by the previously recorded `siege_smoke_test.gd` hang/crash behavior.
