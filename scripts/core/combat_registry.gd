@@ -14,6 +14,7 @@ var _synced_frame: int = -1
 var _grid_frame: int = -1
 var _enemy_grid: Dictionary = {}
 var _ally_grid: Dictionary = {}
+var _perf_monitor: Node = null
 
 func _ready() -> void:
 	add_to_group("combat_registry")
@@ -80,16 +81,23 @@ func active_enemies_in_group(group_name: StringName) -> Array[Node]:
 	return result
 
 func active_enemies_near(point: Vector3, radius: float) -> Array[Node]:
+	var start_us := Time.get_ticks_usec()
 	_sync_once_per_frame()
 	_ensure_spatial_grid()
-	return _units_near(_enemy_grid, point, radius)
+	var result := _units_near(_enemy_grid, point, radius)
+	_record_perf_us(&"registry_enemies_near", start_us)
+	return result
 
 func active_allies_near(point: Vector3, radius: float) -> Array[Node]:
+	var start_us := Time.get_ticks_usec()
 	_sync_once_per_frame()
 	_ensure_spatial_grid()
-	return _units_near(_ally_grid, point, radius)
+	var result := _units_near(_ally_grid, point, radius)
+	_record_perf_us(&"registry_allies_near", start_us)
+	return result
 
 func active_units_near(point: Vector3, radius: float, include_enemies: bool = true, include_allies: bool = true, include_player: bool = true) -> Array[Node]:
+	var start_us := Time.get_ticks_usec()
 	_sync_once_per_frame()
 	_ensure_spatial_grid()
 	var result: Array[Node] = []
@@ -102,6 +110,7 @@ func active_units_near(point: Vector3, radius: float, include_enemies: bool = tr
 		var flat := Vector2(player_3d.global_position.x - point.x, player_3d.global_position.z - point.z)
 		if flat.length_squared() <= radius * radius:
 			result.append(_player)
+	_record_perf_us(&"registry_units_near", start_us)
 	return result
 
 func prune_invalid() -> void:
@@ -273,3 +282,9 @@ func _units_near(grid: Dictionary, point: Vector3, radius: float) -> Array[Node]
 
 func _grid_key(point: Vector3) -> Vector2i:
 	return Vector2i(floori(point.x / GRID_CELL_SIZE), floori(point.z / GRID_CELL_SIZE))
+
+func _record_perf_us(key: StringName, start_us: int) -> void:
+	if _perf_monitor == null or not is_instance_valid(_perf_monitor):
+		_perf_monitor = get_tree().get_first_node_in_group("perf_monitor")
+	if _perf_monitor != null and _perf_monitor.has_method("record_us"):
+		_perf_monitor.call("record_us", key, Time.get_ticks_usec() - start_us)

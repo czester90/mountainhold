@@ -18,6 +18,7 @@ var _player: Node3D
 var _shown: bool = false
 var _t: float = 0.0
 var _combat_registry: Node
+var _perf_monitor: Node
 
 func _ready() -> void:
 	layer = 128
@@ -41,6 +42,7 @@ func _ready() -> void:
 	_spawner = get_node_or_null(spawner_path)
 	_player = root.get_node_or_null("Player") if root else null
 	_combat_registry = get_tree().get_first_node_in_group("combat_registry")
+	_perf_monitor = get_tree().get_first_node_in_group("perf_monitor")
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
@@ -127,6 +129,8 @@ func _process(delta: float) -> void:
 	var ladder_state := _ladder_state_summary()
 	if not ladder_state.is_empty():
 		lines.append("Ladders %s" % ladder_state)
+	for perf_line in _perf_summary_lines():
+		lines.append(perf_line)
 	var defender_focus := _defender_focus_lines()
 	for focus_line in defender_focus:
 		lines.append(focus_line)
@@ -344,6 +348,17 @@ func _ladder_state_summary() -> String:
 			if float(snap.get("hp", 1.0)) <= 0.0:
 				damaged += 1
 	return "active:%d queue:%d entry:%d climb:%d/%d broken:%d" % [ladders.size(), queued, entry, climbing, capacity, damaged]
+
+func _perf_summary_lines() -> PackedStringArray:
+	if _perf_monitor == null or not is_instance_valid(_perf_monitor):
+		_perf_monitor = get_tree().get_first_node_in_group("perf_monitor")
+	if _perf_monitor == null or not _perf_monitor.has_method("summary_lines"):
+		return PackedStringArray()
+	var raw: PackedStringArray = _perf_monitor.call("summary_lines", 4)
+	var out := PackedStringArray()
+	for line in raw:
+		out.append("Perf %s" % line)
+	return out
 
 func _registry() -> Node:
 	if _combat_registry == null:

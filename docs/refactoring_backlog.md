@@ -333,11 +333,11 @@ Observed warnings and issues:
 - Problem: AI lag is suspected, but hot paths need repeatable measurements while scaling to hundreds of units.
 - Affected files: `scripts/enemy/**`, `scripts/ally/**`, `scripts/core/combat_registry.gd`, `scripts/core/projectile_pool.gd`, `docs/audit/**`.
 - Expected result: Debug probes report targeting, movement, raycast, spawn, ladder, projectile, and UI costs.
-- Implementation notes: Use opt-in sampling counters and compact logs.
+- Implementation notes: Added `PerfMonitor` and F3 `Perf` lines for aggregated count/avg/max metrics. Current probes cover registry spatial queries, decision scheduler allow/deny counters, allied target acquisition, and enemy separation.
 - Dependencies: P0-014.
 - Risk: low.
 - Test strategy: manual perf run and log sanity checks.
-- Status: TODO.
+- Status: DONE.
 
 ### P1-014 — Audit Projectile Lifecycle
 

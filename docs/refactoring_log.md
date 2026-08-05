@@ -326,3 +326,49 @@ Remaining risk:
 
 - The scheduler currently gates only allied target refresh and enemy separation refresh. Archer enemy LOS targeting, wall defender acquisition, ladder choice, and path replanning still need measurement before deeper throttling.
 - Full `make test` remains blocked by the previously recorded `siege_smoke_test.gd` hang/crash behavior.
+
+## 2026-08-05 — P1-013 Add Performance Instrumentation
+
+Status: DONE for first AI/registry probes.
+
+Files changed:
+
+- `scripts/core/perf_monitor.gd`
+- `scenes/play.tscn`
+- `scripts/ui/developer_panel.gd`
+- `scripts/core/combat_registry.gd`
+- `scripts/core/decision_scheduler.gd`
+- `scripts/ally/ally_archer.gd`
+- `scripts/enemy/enemy.gd`
+- `test/perf_monitor_test.gd`
+- `docs/refactoring_backlog.md`
+- `docs/refactoring_log.md`
+
+Summary:
+
+- Added a scene-level `PerfMonitor` that records count, total microseconds, average milliseconds, and max milliseconds by named hotpath.
+- Added compact F3 developer panel lines prefixed with `Perf`, sorted by total measured cost.
+- Instrumented registry spatial queries: `registry_enemies_near`, `registry_allies_near`, and `registry_units_near`.
+- Instrumented decision scheduler counters for allowed, interval-denied, and budget-denied decisions.
+- Instrumented allied archer target acquisition and enemy separation refresh timing.
+- Kept instrumentation passive and non-spamming: metrics are visible in the debug overlay and do not print every frame.
+- Marked P1-013 complete. P1-015 scan/raycast audit is now the next direct performance task.
+
+Validation:
+
+- `make test-target TEST=res://test/perf_monitor_test.gd` passed: 3 test cases, 0 failures.
+- `make test-target TEST=res://test/decision_scheduler_test.gd` passed: 3 test cases, 0 failures.
+- `make test-target TEST=res://test/combat_registry_test.gd` passed: 6 test cases, 0 failures.
+- `make test-target TEST=res://test/dev_panel_test.gd` passed: 1 test case, 0 failures.
+- `make test-target TEST=res://test/enemy_test.gd` passed: 12 test cases, 0 failures.
+- `make test-target TEST=res://test/ally_test.gd` passed all 16 test cases, then exited `101` because of the existing Godot cleanup/resource leak issue.
+- `make import` passed with existing duplicate UID, missing UID, asset case mismatch, and cleanup/resource leak warnings.
+
+Behavior changes:
+
+- None intended for gameplay. Only debug/perf metrics were added.
+
+Remaining risk:
+
+- Raycast-heavy paths are visible indirectly through target acquisition cost, but individual LOS/projectile raycasts are not split out yet.
+- Full `make test` remains blocked by the previously recorded `siege_smoke_test.gd` hang/crash behavior.

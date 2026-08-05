@@ -91,6 +91,7 @@ var _shooting: Node = null
 var _defender_targeting: Node = null
 var _castle_pathfinder: Node = null
 var _decision_scheduler: Node = null
+var _perf_monitor: Node = null
 var _firing_slot: Node3D = null
 var hp: float = 45.0
 var _dead: bool = false
@@ -186,6 +187,12 @@ func _can_run_decision(key: StringName, interval: float, max_per_frame: int) -> 
 		return bool(_decision_scheduler.call("can_run", self, key, interval, max_per_frame))
 	return true
 
+func _record_perf_us(key: StringName, start_us: int) -> void:
+	if _perf_monitor == null or not is_instance_valid(_perf_monitor):
+		_perf_monitor = get_tree().get_first_node_in_group("perf_monitor")
+	if _perf_monitor != null and _perf_monitor.has_method("record_us"):
+		_perf_monitor.call("record_us", key, Time.get_ticks_usec() - start_us)
+
 func _setup_navigation_agent() -> void:
 	_nav_agent = NavigationAgent3D.new()
 	_nav_agent.name = "NavigationAgent3D"
@@ -265,7 +272,9 @@ func _physics_process(delta: float) -> void:
 		return
 	if _should_refresh_target():
 		if _can_run_decision(&"ally_target_refresh", TARGET_REFRESH_INTERVAL, 12):
+			var start_us := Time.get_ticks_usec()
 			_current_target = _acquire()
+			_record_perf_us(&"ally_target_acquire", start_us)
 			_target_refresh_t = TARGET_REFRESH_INTERVAL + randf_range(0.0, 0.08)
 	if _current_target == null:
 		_release_firing_slot()

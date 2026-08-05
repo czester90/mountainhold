@@ -84,6 +84,7 @@ var _locomotion: Node = null
 var _wall_brain: Node = null
 var _ladder_brain: Node = null
 var _decision_scheduler: Node = null
+var _perf_monitor: Node = null
 var _unit_attack_target: Node3D = null
 var _cached_wall_defender: Node3D = null
 var _wall_defender_refresh_t: float = 0.0
@@ -796,7 +797,9 @@ func _avoidance_direction(desired_dir: Vector3) -> Vector3:
 	_avoidance_cache_t -= get_physics_process_delta_time()
 	if _avoidance_cache_t <= 0.0:
 		if _can_run_decision(&"enemy_separation", AVOIDANCE_REFRESH, 32):
+			var start_us := Time.get_ticks_usec()
 			_avoidance_cache = _unit_separation_vector(global_position)
+			_record_perf_us(&"enemy_separation", start_us)
 			_avoidance_cache_t = AVOIDANCE_REFRESH + randf() * 0.08
 	var push := _avoidance_cache
 	if push.length() < 0.001:
@@ -850,6 +853,12 @@ func _can_run_decision(key: StringName, interval: float, max_per_frame: int) -> 
 	if _decision_scheduler != null and _decision_scheduler.has_method("can_run"):
 		return bool(_decision_scheduler.call("can_run", self, key, interval, max_per_frame))
 	return true
+
+func _record_perf_us(key: StringName, start_us: int) -> void:
+	if _perf_monitor == null or not is_instance_valid(_perf_monitor):
+		_perf_monitor = get_tree().get_first_node_in_group("perf_monitor")
+	if _perf_monitor != null and _perf_monitor.has_method("record_us"):
+		_perf_monitor.call("record_us", key, Time.get_ticks_usec() - start_us)
 
 # stand and let the AttackComponent pace the hammering (keeps taking arrows until killed)
 func _attack(delta: float, what: String) -> void:
