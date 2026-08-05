@@ -190,6 +190,8 @@ func _is_active(unit: Node, kind: String) -> bool:
 	return unit.visible
 
 func _is_active_enemy(unit: Node) -> bool:
+	if bool(unit.get_meta("staged_waiting", false)):
+		return false
 	if unit.has_method("is_active_enemy") and not bool(unit.call("is_active_enemy")):
 		return false
 	if not unit.visible:

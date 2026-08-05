@@ -1,15 +1,19 @@
 class_name LadderOrcEnemy
 extends Enemy
 
-## Fast raider assigned to a four-orc ladder crew. It ignores the closed gate, carries the ladder
+## Fast raider assigned to a two-orc ladder crew. It ignores the closed gate, carries the ladder
 ## to an assigned wall lane, deploys it with the crew, climbs onto the rampart, then attacks nearby
 ## defenders.
 
 const DEFAULT_STATS := preload("res://data/enemy_ladder_orc.tres")
 const SIEGE_LADDER := preload("res://scenes/enemy/siege_ladder.tscn")
-const MIN_CARRIERS_TO_DEPLOY := 2
+const FULL_CARRIERS_TO_MOVE_FAST := 2
+const MIN_CARRIERS_TO_DEPLOY := 1
 const DEPLOY_WORK_RADIUS := 5.2
 const DEPLOY_DURATION := 3.2
+const SOLO_DEPLOY_DURATION := 5.4
+const TEAM_CARRY_SPEED := 2.55
+const SOLO_CARRY_SPEED := 1.45
 
 static var _shared_carried_beam_mesh: BoxMesh = null
 static var _shared_carried_wood_material: StandardMaterial3D = null
@@ -72,7 +76,7 @@ func _apply_carrying_bonus() -> void:
 	defense = maxf(defense, 4.0)
 	armor = maxf(armor, 0.34)
 	attack_damage = maxf(attack_damage, 16.0)
-	speed = minf(speed, 2.35)
+	_update_carrying_speed()
 	if _health:
 		_health.setup(max_hp, defense, armor)
 
@@ -97,6 +101,8 @@ func _physics_process(delta: float) -> void:
 		if _flash <= 0.0:
 			for i in _mats.size():
 				_mats[i].albedo_color = _bases[i]
+	if _carrying_ladder or _deploying_ladder:
+		_update_carrying_speed()
 	if _deploying_ladder:
 		_continue_deploying_ladder(delta)
 		_idle(delta)
@@ -138,7 +144,7 @@ func _physics_process(delta: float) -> void:
 				_idle(delta)
 			return
 		elif dist <= 2.0:
-			_move_towards_wall_point(_wall_pressure_point(), delta)
+			_move_to_wall_pressure(delta)
 			return
 	elif not at_final_waypoint and dist <= 2.5:
 		_wp = mini(_wp + 1, path.size() - 1)
@@ -196,7 +202,7 @@ func _continue_deploying_ladder(delta: float) -> void:
 	for node in get_tree().get_nodes_in_group("ladder_carrier"):
 		if node is LadderOrcEnemy and int(node.get_meta("crew_id", -1)) == _crew_id:
 			(node as LadderOrcEnemy)._deploy_t = _deploy_t
-	if _deploy_t < DEPLOY_DURATION:
+	if _deploy_t < _deploy_duration_required():
 		return
 	_finish_deploying_ladder()
 
@@ -213,10 +219,13 @@ func _finish_deploying_ladder() -> void:
 	for node in get_tree().get_nodes_in_group("ladder_carrier"):
 		if node is LadderOrcEnemy and int(node.get_meta("crew_id", -1)) == _crew_id:
 			var carrier := node as LadderOrcEnemy
+			if carrier._done:
+				continue
 			carrier._ladder_deployed = true
 			carrier._deploying_ladder = false
 			carrier._deploy_t = 0.0
 			carrier._carrying_ladder = false
+			carrier.speed = carrier.stats.speed if carrier.stats != null else carrier.speed
 			carrier.remove_from_group("ladder_carrier")
 			carrier._ladder_prop = _ladder_prop
 			carrier._wait_for_ladder_queue(_ladder_prop)
@@ -237,11 +246,11 @@ func _ready_carriers_near_deploy_zone() -> int:
 	if path.size() > 0:
 		deploy_target = path[mini(_wp, path.size() - 1)]
 	for node in get_tree().get_nodes_in_group("ladder_carrier"):
-		if not node is Node3D or not is_instance_valid(node):
+		if not node is LadderOrcEnemy or not is_instance_valid(node):
 			continue
-		if int(node.get_meta("crew_id", -1)) != _crew_id:
+		var carrier := node as LadderOrcEnemy
+		if carrier._done or int(carrier.get_meta("crew_id", -1)) != _crew_id:
 			continue
-		var carrier := node as Node3D
 		if carrier.global_position.distance_to(_ladder_foot) <= DEPLOY_WORK_RADIUS:
 			count += 1
 		elif carrier.global_position.distance_to(deploy_target) <= DEPLOY_WORK_RADIUS:
@@ -258,6 +267,8 @@ func _ready_carriers_near_deploy_zone() -> int:
 	return count
 
 func _request_ladder_help() -> void:
+	if _living_carriers_for_crew() >= MIN_CARRIERS_TO_DEPLOY:
+		return
 	for node in get_tree().get_nodes_in_group("ladder_helper"):
 		if node is LadderOrcEnemy and int(node.get_meta("helping_crew_id", -1)) == _crew_id:
 			return
@@ -298,6 +309,37 @@ func _assist_ladder_crew(crew_id: int, foot: Vector3, top: Vector3, normal: Vect
 	gate_wp = -1
 	add_to_group("ladder_helper")
 	set_meta("helping_crew_id", crew_id)
+
+func _deploy_duration_required() -> float:
+	return DEPLOY_DURATION if _living_carriers_for_crew() >= FULL_CARRIERS_TO_MOVE_FAST else SOLO_DEPLOY_DURATION
+
+func _update_carrying_speed() -> void:
+	if not _carrying_ladder and not _deploying_ladder:
+		return
+	speed = TEAM_CARRY_SPEED if _living_carriers_for_crew() >= FULL_CARRIERS_TO_MOVE_FAST else SOLO_CARRY_SPEED
+
+func _living_carriers_for_crew() -> int:
+	var count := 0
+	for node in get_tree().get_nodes_in_group("ladder_carrier"):
+		if not node is LadderOrcEnemy or not is_instance_valid(node):
+			continue
+		var carrier := node as LadderOrcEnemy
+		if carrier._done or int(carrier.get_meta("crew_id", -1)) != _crew_id:
+			continue
+		count += 1
+	return count
+
+func _transfer_ladder_visual_to_partner() -> void:
+	for node in get_tree().get_nodes_in_group("ladder_carrier"):
+		if not node is LadderOrcEnemy or not is_instance_valid(node):
+			continue
+		var carrier := node as LadderOrcEnemy
+		if carrier == self or carrier._done or int(carrier.get_meta("crew_id", -1)) != _crew_id:
+			continue
+		if carrier._carrying_ladder and carrier._carried_ladder_visual == null:
+			carrier._build_carried_ladder_visual()
+			carrier._update_carrying_speed()
+			return
 
 func _try_join_helped_ladder() -> void:
 	for node in get_tree().get_nodes_in_group("siege_ladder_active"):
@@ -382,6 +424,14 @@ func _is_deployment_leader() -> bool:
 			continue
 		leader_index = mini(leader_index, carrier._crew_index)
 	return _crew_index == leader_index
+
+func _die() -> void:
+	var should_transfer_visual := _carrying_ladder and _carried_ladder_visual != null
+	if should_transfer_visual:
+		_carried_ladder_visual.queue_free()
+		_carried_ladder_visual = null
+		_transfer_ladder_visual_to_partner()
+	super()
 
 func _spawn_siege_ladder() -> void:
 	if _ladder_prop and is_instance_valid(_ladder_prop):

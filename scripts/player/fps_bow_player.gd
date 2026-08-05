@@ -209,6 +209,9 @@ func _release() -> void:
 			_play("Bow_IDLE", true)
 
 func _fire() -> void:
+	for spawner in get_tree().get_nodes_in_group("wave_spawner"):
+		if spawner.has_method("start_assault"):
+			spawner.call("start_assault")
 	var t := clampf((_draw_t - min_draw) / maxf(0.01, full_draw - min_draw), 0.0, 1.0)
 	var sp: float = lerpf(min_arrow_speed, max_arrow_speed, t)
 	# accuracy cone: tight at full draw, wider on snap-shots and while moving, so repeated

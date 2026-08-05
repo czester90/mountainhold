@@ -126,12 +126,14 @@ func _nearest_tactical_point(context: Node, from: Vector3) -> Vector3:
 		var routed_score := _route_length(from, route) if not route.is_empty() else distance
 		var score := routed_score
 		var slot_kind := str(slot.get_meta("slot_kind", ""))
+		if slot_kind == "ladder":
+			continue
 		if slot_kind == "keep":
 			score *= 0.75
 		elif slot_kind == "gate":
-			score *= 0.9
-		elif slot_kind == "ladder":
-			score *= 1.2
+			score *= 0.7
+		elif slot_kind == "archer":
+			score *= 0.62 if int(slot.get_meta("priority", 0)) > 0 else 0.95
 		if score < best_score:
 			best_score = score
 			best = point

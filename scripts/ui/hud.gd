@@ -454,7 +454,12 @@ func _process(delta: float) -> void:
 		_banner.text = "FALA %d" % _last_wave
 		_banner_t = 2.6
 	var next_in: float = _spawner.time_to_next_wave() if _spawner.has_method("time_to_next_wave") else 0.0
-	if next_in > 0.5 and _banner_t <= 0.0:                # lull between waves -> countdown
+	var waiting_for_assault: bool = bool(_spawner.call("waiting_for_assault")) if _spawner.has_method("waiting_for_assault") else false
+	if waiting_for_assault and _banner_t <= 0.0:
+		_banner.visible = true
+		_banner.modulate = Color(1, 1, 1, 1)
+		_banner.text = "WRÓG NA HORYZONCIE — STRZEL ALBO CZEKAJ %d…" % int(ceil(next_in))
+	elif next_in > 0.5 and _banner_t <= 0.0:                # lull between waves -> countdown
 		_banner.visible = true
 		_banner.modulate = Color(1, 1, 1, 1)
 		_banner.text = "Następna fala za %d…" % int(ceil(next_in))

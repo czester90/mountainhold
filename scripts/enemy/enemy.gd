@@ -102,6 +102,7 @@ const WALL_SAFE_STEP_DROP := 2.6
 const SKY_RECOVERY_Y := 80.0
 
 var _wall_target: Node3D = null
+var _wall_objective_target := Vector3.INF
 var _wall_nav_path: Array[Vector3] = []
 var _wall_nav_index: int = 0
 var _wall_repath_t: float = 0.0
@@ -346,6 +347,8 @@ func _fight_on_wall(delta: float) -> void:
 			return
 		_move_towards_wall_point(defender.global_position, delta)
 		return
+	if _move_to_wall_pressure(delta):
+		return
 	_idle(delta)
 
 func _try_settle_after_ladder(delta: float) -> bool:
@@ -439,6 +442,34 @@ func _move_to_wall_defender(delta: float, defender: Node3D) -> bool:
 		desired = _wall_nav_path[_wall_nav_index]
 	return _move_towards_wall_point(desired, delta)
 
+func _move_to_wall_pressure(delta: float) -> bool:
+	var pressure := _wall_pressure_point()
+	if pressure == Vector3.INF:
+		return false
+	if global_position.distance_squared_to(pressure) <= 0.36 and absf(pressure.y - global_position.y) <= 0.8:
+		return false
+	if absf(pressure.y - global_position.y) <= WALL_MAX_DIRECT_HEIGHT_DELTA:
+		_wall_target = null
+		_wall_objective_target = pressure
+		_wall_nav_path.clear()
+		return _move_towards_wall_point(pressure, delta)
+	_wall_repath_t = maxf(0.0, _wall_repath_t - delta)
+	if _wall_objective_target.distance_squared_to(pressure) > 1.0 or _wall_nav_path.is_empty() or _wall_repath_t <= 0.0:
+		_wall_target = null
+		_wall_objective_target = pressure
+		_wall_nav_path = []
+		if _wall_brain != null and _wall_brain.has_method("route_to"):
+			_wall_nav_path = _wall_brain.call("route_to", self, global_position, pressure)
+		if _wall_nav_path.is_empty():
+			return false
+		_wall_nav_index = 0
+		_wall_repath_t = WALL_REPATH_INTERVAL * 2.0 + randf_range(0.0, 0.35)
+	var desired := _wall_nav_path[mini(_wall_nav_index, _wall_nav_path.size() - 1)]
+	if global_position.distance_to(desired) <= WALL_WAYPOINT_REACHED and _wall_nav_index < _wall_nav_path.size() - 1:
+		_wall_nav_index += 1
+		desired = _wall_nav_path[_wall_nav_index]
+	return _move_towards_wall_point(desired, delta)
+
 func _wall_pressure_point() -> Vector3:
 	if _cached_wall_pressure_point != Vector3.INF and _wall_pressure_refresh_t > 0.0:
 		return _cached_wall_pressure_point
@@ -454,6 +485,11 @@ func _move_towards_wall_point(desired: Vector3, delta: float) -> bool:
 	flat.y = 0.0
 	var dist := flat.length()
 	if dist <= 0.25 and absf(desired.y - global_position.y) > WALL_MAX_DIRECT_HEIGHT_DELTA:
+		var vertical_delta := desired.y - global_position.y
+		if absf(vertical_delta) <= WALL_ROUTED_HEIGHT_DELTA:
+			velocity = Vector3.ZERO
+			global_position.y = move_toward(global_position.y, desired.y, maxf(1.8, speed) * delta)
+			return true
 		velocity = Vector3.ZERO
 		return false
 	if dist < 0.05:
@@ -561,6 +597,10 @@ func _build_body() -> void:
 func take_damage(amount: float) -> void:
 	if _done or _health == null:
 		return
+	if bool(get_meta("staged_waiting", false)):
+		for spawner in get_tree().get_nodes_in_group("wave_spawner"):
+			if spawner.has_method("start_assault"):
+				spawner.call("start_assault")
 	_health.take_damage(amount)
 	_flash = 0.12
 	for m in _mats:

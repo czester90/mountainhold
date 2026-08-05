@@ -15,7 +15,7 @@ const SCENES := {
 	"bossram": preload("res://scenes/enemy/enemy_bossram.tscn"),
 }
 const LADDER_ORC_SCENE := preload("res://scenes/enemy/enemy_ladder_orc.tscn")
-const LADDER_CARRIERS_PER_CREW := 4
+const LADDER_CARRIERS_PER_CREW := 2
 const LADDER_ESCORTS_PER_CREW := 2
 const WORLD_MASK := CollisionLayers.WORLD
 const GROUND_RAY_TOP := 90.0
@@ -41,6 +41,12 @@ const ROUTE := [
 @export var wave_gap: float = 6.0
 @export var spawn_interval: float = 1.05
 @export var auto_start: bool = true
+@export var staged_waves: bool = true
+@export var staged_auto_start_delay: float = 7.0
+@export var staged_start_on_player_shot: bool = true
+@export var staging_horizon_distance: float = 22.0
+@export var staging_width: float = 96.0
+@export var staging_row_gap: float = 3.2
 @export var gate_max_hp: float = 750.0         # first line: the gate. Should break mid-wave 3-4 (rams do the work)
 @export var keep_max_hp: float = 500.0         # last line: the keep (stołp). At 0 the castle falls
 
@@ -55,6 +61,10 @@ var _wave: int = 0
 var _finished: bool = false
 var _next_in: float = 0.0
 var _ladder_crew_seq: int = 1
+var _assault_started: bool = false
+var _staged_spawn_index: int = 0
+var _staged_spawn_total: int = 0
+var _staged_orders: Array[Dictionary] = []
 
 func _ready() -> void:
 	add_to_group("wave_spawner")
@@ -70,11 +80,15 @@ func _ready() -> void:
 	_siege_director.name = "SiegeDirector"
 	add_child(_siege_director)
 	_siege_director.setup(spawn_centre, spawn_spread, _terrain, _ground_resolver)
+	_connect_player_start_signal()
 	if auto_start:
 		_run()
 
 func wave() -> int: return _wave
 func alive_count() -> int:
+	if waiting_for_assault():
+		_prune_alive()
+		return _alive.size()
 	if _combat_registry != null and _combat_registry.has_method("active_enemies"):
 		return (_combat_registry.call("active_enemies") as Array).size()
 	_prune_alive()
@@ -127,9 +141,15 @@ func _run() -> void:
 	await get_tree().process_frame                     # let the scene finish setting up before the first spawn
 	for i in waves.size():
 		_wave = i + 1
-		for k in _wave_kinds(i, waves[i]):
-			_spawn_one(k)
-			await get_tree().create_timer(spawn_interval).timeout
+		var kinds := _wave_kinds(i, waves[i])
+		if staged_waves:
+			await _stage_wave(kinds)
+			await _wait_for_assault_start()
+			await _activate_staged_wave()
+		else:
+			for k in kinds:
+				_spawn_one(k)
+				await get_tree().create_timer(spawn_interval).timeout
 		while alive_count() > 0:
 			await get_tree().create_timer(0.5).timeout
 		if _wave < waves.size():
@@ -137,6 +157,74 @@ func _run() -> void:
 			await get_tree().create_timer(wave_gap).timeout
 			_next_in = 0.0
 	_finished = true
+
+func _connect_player_start_signal() -> void:
+	if not staged_start_on_player_shot:
+		return
+	var player := get_tree().get_first_node_in_group("player")
+	if player != null and player.has_signal("shot_fired"):
+		var cb := Callable(self, "start_assault")
+		if not player.is_connected("shot_fired", cb):
+			player.connect("shot_fired", cb)
+
+func _stage_wave(kinds: Array) -> void:
+	_assault_started = false
+	_staged_orders.clear()
+	_staged_spawn_index = 0
+	_staged_spawn_total = _staged_unit_count(kinds)
+	for kind in kinds:
+		if kind == "ladder_crew":
+			_stage_ladder_crew()
+		else:
+			_stage_one(kind)
+		if _staged_spawn_index % 10 == 0:
+			await get_tree().process_frame
+
+func _wait_for_assault_start() -> void:
+	if not staged_waves:
+		return
+	var wait_left := staged_auto_start_delay
+	_next_in = wait_left
+	while not _assault_started and wait_left > 0.0:
+		await get_tree().create_timer(0.1).timeout
+		if not is_inside_tree():
+			return
+		wait_left = maxf(0.0, wait_left - 0.1)
+		_next_in = wait_left
+	_assault_started = true
+	_next_in = 0.0
+
+func _activate_staged_wave() -> void:
+	if not is_inside_tree():
+		return
+	var activated := 0
+	for order in _staged_orders:
+		var unit_value: Variant = order.get("unit", null)
+		if unit_value == null or not is_instance_valid(unit_value):
+			continue
+		var unit := unit_value as Node
+		if unit == null:
+			continue
+		var kind := str(order.get("kind", ""))
+		unit.set_meta("staged_waiting", false)
+		if kind == "ladder_carrier":
+			unit.call("setup_ladder_carry", int(order["crew_id"]), int(order["crew_index"]), order["foot"], order["top"], order["normal"], self, order["crew_spawn"])
+		elif kind == "ladder_escort":
+			if unit.has_method("setup_wall_assault"):
+				unit.call("setup_wall_assault", [order["approach"], order["cover_foot"]], self)
+			else:
+				unit.call("setup_path", ROUTE, self, GATE_WP)
+		elif kind == "ram" or kind == "bossram":
+			unit.call("setup_path", ROUTE, self, GATE_WP)
+		elif unit.has_method("setup_wall_assault"):
+			var assault := _pick_ladder_assault_point()
+			unit.call("setup_wall_assault", [assault["approach"], assault["foot"]], self)
+		else:
+			unit.call("setup_path", ROUTE, self, GATE_WP)
+		activated += 1
+		if activated % 12 == 0:
+			await get_tree().process_frame
+	_staged_orders.clear()
 
 func _process(delta: float) -> void:
 	_prune_alive()
@@ -154,12 +242,18 @@ func _process(delta: float) -> void:
 func time_to_next_wave() -> float:
 	return _next_in
 
-# wave composition: mostly infantry, ~30% archers, heavy ladder-crew pressure from wave 1,
+func start_assault() -> void:
+	_assault_started = true
+
+func waiting_for_assault() -> bool:
+	return staged_waves and not _assault_started and not _staged_orders.is_empty()
+
+# wave composition: mostly infantry, ~30% archers, ladder pressure from wave 1,
 # plus rams from wave 2 onward. Only rams can break the gate; ladder orcs must climb.
 func _wave_kinds(idx: int, n: int) -> Array:
 	var out: Array = []
 	var rams: int = idx                                    # 0,1,2,3 — escalating (the ram is the real gate threat)
-	var ladder_crews: int = 4 + idx                        # each crew brings 4 tough carriers and one long ladder
+	var ladder_crews: int = 4 + idx                        # each crew brings two fast carriers and one long ladder
 	var archers: int = int(round(float(n) * 0.22))
 	var inf: int = n - rams - archers - ladder_crews
 	if inf < 0:
@@ -217,6 +311,18 @@ func _spawn_one(kind: String = "infantry") -> void:
 		e.setup_path(ROUTE, self, GATE_WP)
 	_track_enemy(e)
 
+func _stage_one(kind: String = "infantry") -> Node:
+	var scene: PackedScene = SCENES.get(kind, SCENES["infantry"])
+	var e := scene.instantiate()
+	(get_tree().current_scene if get_tree().current_scene else get_parent()).add_child(e)
+	e.global_position = _valid_spawn_point(_next_staging_point())
+	e.set_meta("siege_role", "gate_engine" if kind == "ram" or kind == "bossram" else "wall_assault")
+	e.set_meta("staged_wave", true)
+	e.set_meta("staged_waiting", true)
+	_track_enemy(e)
+	_staged_orders.append({"unit": e, "kind": kind})
+	return e
+
 func _spawn_ladder_crew() -> void:
 	var slot := _reserve_ladder_slot()
 	var crew_id := _ladder_crew_seq
@@ -248,6 +354,54 @@ func _spawn_ladder_crew() -> void:
 		await get_tree().process_frame
 	await _spawn_ladder_escorts(crew_id, foot, normal, side, crew_spawn)
 
+func _stage_ladder_crew() -> void:
+	var slot := _reserve_ladder_slot()
+	var crew_id := _ladder_crew_seq
+	_ladder_crew_seq += 1
+	var normal := Vector3(-1.0, 0.0, 0.0)
+	var fallback_z := spawn_centre.z + (24.0 if crew_id % 2 == 0 else -24.0)
+	var foot := Vector3(288.0, _ground(288.0, fallback_z) + 0.15, fallback_z)
+	var top := Vector3(294.0, 22.0, fallback_z)
+	if slot:
+		foot = slot.get_meta("foot", foot)
+		top = slot.get_meta("top", top)
+		normal = slot.get_meta("normal", normal)
+		slot.set_meta("reserved_by", crew_id)
+	var side := normal.cross(Vector3.UP).normalized()
+	if side.length() < 0.01:
+		side = Vector3.FORWARD
+	top = _resolved_ladder_landing(top, normal)
+	var crew_spawn := _spawn_point_for_ladder_foot(foot, normal)
+	for i in LADDER_CARRIERS_PER_CREW:
+		var e := LADDER_ORC_SCENE.instantiate()
+		(get_tree().current_scene if get_tree().current_scene else get_parent()).add_child(e)
+		e.global_position = _valid_spawn_point(_next_staging_point())
+		e.add_to_group("ladder_carrier")
+		e.set_meta("siege_role", "ladder_carrier")
+		e.set_meta("ladder_crew_id", crew_id)
+		e.set_meta("staged_wave", true)
+		e.set_meta("staged_waiting", true)
+		e.setup_ladder_carry(crew_id, i, foot, top, normal, self, crew_spawn)
+		e.set("path", [])
+		e.set("target", e.global_position)
+		_track_enemy(e)
+		_staged_orders.append({"unit": e, "kind": "ladder_carrier", "crew_id": crew_id, "crew_index": i, "foot": foot, "top": top, "normal": normal, "crew_spawn": crew_spawn})
+	for i in LADDER_ESCORTS_PER_CREW:
+		var e := SCENES["infantry"].instantiate()
+		(get_tree().current_scene if get_tree().current_scene else get_parent()).add_child(e)
+		e.global_position = _valid_spawn_point(_next_staging_point())
+		var cover_foot := foot + normal * randf_range(3.0, 5.0) + side * float(i - 1) * 2.2
+		var approach := crew_spawn + side * float(i - 1) * 2.8
+		cover_foot.y = foot.y
+		approach.y = foot.y
+		e.add_to_group("ladder_escort")
+		e.set_meta("siege_role", "ladder_escort")
+		e.set_meta("escort_crew_id", crew_id)
+		e.set_meta("staged_wave", true)
+		e.set_meta("staged_waiting", true)
+		_track_enemy(e)
+		_staged_orders.append({"unit": e, "kind": "ladder_escort", "approach": approach, "cover_foot": cover_foot})
+
 func _spawn_ladder_escorts(crew_id: int, foot: Vector3, normal: Vector3, side: Vector3, crew_spawn: Vector3) -> void:
 	for i in LADDER_ESCORTS_PER_CREW:
 		var e := SCENES["infantry"].instantiate()
@@ -276,6 +430,23 @@ func _pick_ladder_assault_point() -> Dictionary:
 
 func _next_wide_spawn_point() -> Vector3:
 	return _siege_director.next_wide_spawn_point() if _siege_director else spawn_centre + Vector3(randf_range(-spawn_spread.x, spawn_spread.x), 0.0, randf_range(-spawn_spread.z, spawn_spread.z))
+
+func _next_staging_point() -> Vector3:
+	var columns := maxi(1, ceili(sqrt(float(maxi(1, _staged_spawn_total))) * 2.2))
+	var row := int(_staged_spawn_index / columns)
+	var col := _staged_spawn_index % columns
+	var t := 0.5 if columns == 1 else float(col) / float(columns - 1)
+	var z := spawn_centre.z - staging_width * 0.5 + staging_width * t
+	var x := spawn_centre.x - staging_horizon_distance - float(row) * staging_row_gap
+	_staged_spawn_index += 1
+	var staged := Vector3(x + randf_range(-1.2, 1.2), _ground(x, z) + 0.15, z + randf_range(-1.0, 1.0))
+	return _valid_spawn_point(staged)
+
+func _staged_unit_count(kinds: Array) -> int:
+	var count := 0
+	for kind in kinds:
+		count += LADDER_CARRIERS_PER_CREW + LADDER_ESCORTS_PER_CREW if kind == "ladder_crew" else 1
+	return count
 
 func _spawn_point_for_ladder_foot(foot: Vector3, normal: Vector3) -> Vector3:
 	return _siege_director.spawn_point_for_ladder_foot(foot, normal) if _siege_director else foot
