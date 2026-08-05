@@ -7,11 +7,15 @@ const MAX_TARGET_RANGE := 120.0
 const DIRECT_HEIGHT_DELTA := 3.2
 const ROUTED_HEIGHT_DELTA := 18.0
 const SLOT_SEARCH_RANGE := 160.0
+const REASSIGN_COOLDOWN_SEC := 1.2
+const SWITCH_IMPROVEMENT_RATIO := 0.72
 
 var _pathfinder: Node = null
 var _last_reason: String = "idle"
 var _last_target_name: String = "-"
 var _last_route_size: int = 0
+var _locked_defender: Node3D = null
+var _locked_until_msec: int = 0
 
 func _ready() -> void:
 	_ensure_pathfinder()
@@ -25,6 +29,7 @@ func route_to(context: Node, from: Vector3, to: Vector3) -> Array[Vector3]:
 func choose_defender(context: Node, body: Node3D) -> Node3D:
 	var best: Node3D = null
 	var best_score := INF
+	var locked_score := INF
 	_last_reason = "no_target"
 	_last_target_name = "-"
 	_last_route_size = 0
@@ -45,20 +50,19 @@ func choose_defender(context: Node, body: Node3D) -> Node3D:
 			routed = not route.is_empty()
 		if not direct and not routed:
 			continue
-		var score := flat_distance
-		if routed:
-			score = _route_length(body.global_position, route) * 0.85
-		if direct:
-			score *= 0.75
-		if defender.is_in_group("player"):
-			score *= 0.9
-		if defender.global_position.y > body.global_position.y + 1.5:
-			score *= 0.82
+		var score := _defender_score(body, defender, flat_distance, direct, routed, route)
+		if defender == _locked_defender:
+			locked_score = score
 		if score < best_score:
 			best_score = score
 			best = defender
 			_last_route_size = route.size()
+	if _should_keep_locked_defender(best, best_score, locked_score):
+		_last_reason = "target_locked"
+		_last_target_name = _locked_defender.name
+		return _locked_defender
 	if best != null:
+		_lock_defender(best)
 		_last_reason = "target"
 		_last_target_name = best.name
 	return best
@@ -77,6 +81,34 @@ func pressure_point(context: Node, body: Node3D) -> Vector3:
 
 func debug_summary() -> String:
 	return "%s target:%s route:%d" % [_last_reason, _last_target_name, _last_route_size]
+
+func _defender_score(body: Node3D, defender: Node3D, flat_distance: float, direct: bool, routed: bool, route: Array[Vector3]) -> float:
+	var score := flat_distance
+	if routed:
+		score = _route_length(body.global_position, route) * 0.85
+	if direct:
+		score *= 0.75
+	if defender.is_in_group("player"):
+		score *= 0.9
+	if defender.global_position.y > body.global_position.y + 1.5:
+		score *= 0.82
+	return score
+
+func _should_keep_locked_defender(best: Node3D, best_score: float, locked_score: float) -> bool:
+	if _locked_defender == null or not is_instance_valid(_locked_defender):
+		return false
+	if best == _locked_defender:
+		_lock_defender(_locked_defender)
+		return true
+	if locked_score >= INF:
+		return false
+	if Time.get_ticks_msec() >= _locked_until_msec:
+		return false
+	return best == null or best_score >= locked_score * SWITCH_IMPROVEMENT_RATIO
+
+func _lock_defender(defender: Node3D) -> void:
+	_locked_defender = defender
+	_locked_until_msec = Time.get_ticks_msec() + int(REASSIGN_COOLDOWN_SEC * 1000.0)
 
 func _ensure_pathfinder() -> void:
 	if _pathfinder != null and is_instance_valid(_pathfinder):

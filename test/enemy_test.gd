@@ -9,6 +9,7 @@ const LadderOrc := preload("res://scenes/enemy/enemy_ladder_orc.tscn")
 const Ram := preload("res://scenes/enemy/enemy_ram.tscn")
 const SiegeLadder := preload("res://scenes/enemy/siege_ladder.tscn")
 const LadderAssaultBrainScript := preload("res://scripts/enemy/ladder_assault_brain.gd")
+const WallAssaultBrainScript := preload("res://scripts/enemy/wall_assault_brain.gd")
 
 func _spawn() -> CharacterBody3D:
 	var e: CharacterBody3D = auto_free(Enemy.instantiate())
@@ -243,6 +244,38 @@ func test_ladder_brain_skips_invalid_ladder_and_selects_active_one() -> void:
 	released.call("mark_released")
 	var selected: Node = brain.call("choose_active_ladder", self, e)
 	assert_object(selected).is_same(active)
+
+func test_ladder_brain_keeps_recent_ladder_without_clear_gain() -> void:
+	var e := _spawn()
+	var first: Node3D = auto_free(SiegeLadder.instantiate())
+	var second: Node3D = auto_free(SiegeLadder.instantiate())
+	var brain: Node = auto_free(LadderAssaultBrainScript.new())
+	add_child(first)
+	add_child(second)
+	add_child(brain)
+	await await_millis(30)
+	first.call("deploy", Vector3(10.0, 0.0, 0.0), Vector3(13.0, 8.0, 0.0), Vector3.FORWARD)
+	second.call("deploy", Vector3(40.0, 0.0, 0.0), Vector3(43.0, 8.0, 0.0), Vector3.FORWARD)
+	assert_object(brain.call("choose_active_ladder", self, e)).is_same(first)
+	second.set("foot", Vector3(9.0, 0.0, 0.0))
+	second.global_position = Vector3(9.0, 0.0, 0.0)
+	assert_object(brain.call("choose_active_ladder", self, e)).is_same(first)
+
+func test_wall_brain_keeps_recent_defender_without_clear_gain() -> void:
+	var e := _spawn()
+	var first: Node3D = auto_free(Node3D.new())
+	var second: Node3D = auto_free(Node3D.new())
+	var brain: Node = auto_free(WallAssaultBrainScript.new())
+	add_child(first)
+	add_child(second)
+	add_child(brain)
+	first.add_to_group("ally")
+	second.add_to_group("ally")
+	first.global_position = Vector3(10.0, 0.0, 0.0)
+	second.global_position = Vector3(40.0, 0.0, 0.0)
+	assert_object(brain.call("choose_defender", self, e)).is_same(first)
+	second.global_position = Vector3(9.0, 0.0, 0.0)
+	assert_object(brain.call("choose_defender", self, e)).is_same(first)
 
 func test_enemy_ladder_completion_places_unit_on_wall_path() -> void:
 	var e := _spawn()

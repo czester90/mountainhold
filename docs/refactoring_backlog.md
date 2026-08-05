@@ -300,11 +300,11 @@ Observed warnings and issues:
 - Problem: Units can thrash between objectives if targets/ladders become briefly invalid.
 - Affected files: `scripts/enemy/siege_director.gd`, `scripts/enemy/wall_assault_brain.gd`, `scripts/ally/defender_targeting.gd`.
 - Expected result: Objective changes have cooldowns, confidence thresholds, and clear fallback order.
-- Implementation notes: Introduce after explicit states and director ownership.
+- Implementation notes: Added short-lived sticky assignments in wall target selection, ladder selection, and defender targeting. Units keep recent objectives unless the alternative is clearly better, unavailable, out of range, or the order mode changes.
 - Dependencies: P1-009.
 - Risk: medium.
 - Test strategy: deterministic reassignment tests.
-- Status: TODO.
+- Status: DONE.
 
 ### P1-011 — Introduce WaveDefinition Resources
 

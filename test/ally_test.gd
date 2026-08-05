@@ -6,6 +6,7 @@ extends GdUnitTestSuite
 const Ally := preload("res://scenes/ally/ally_archer.tscn")
 const Enemy := preload("res://scenes/enemy/enemy.tscn")
 const Ram := preload("res://scenes/enemy/enemy_ram.tscn")
+const DefenderTargetingScript := preload("res://scripts/ally/defender_targeting.gd")
 
 func test_default_stats() -> void:
 	var a: Node3D = auto_free(Ally.instantiate())
@@ -57,6 +58,28 @@ func test_acquires_enemy_in_range() -> void:
 	await await_millis(50)
 	var target: Node = a._acquire()
 	assert_object(target).is_same(e)
+
+func test_defender_targeting_keeps_recent_target_without_order_change() -> void:
+	var targeting: TargetingComponent = auto_free(TargetingComponent.new())
+	var brain: Node = auto_free(DefenderTargetingScript.new())
+	var archer: Node3D = auto_free(Node3D.new())
+	var first: CharacterBody3D = auto_free(Enemy.instantiate())
+	var second: CharacterBody3D = auto_free(Enemy.instantiate())
+	add_child(brain)
+	add_child(archer)
+	add_child(first)
+	add_child(second)
+	archer.global_position = Vector3.ZERO
+	first.global_position = Vector3(12.0, 0.0, 0.0)
+	second.global_position = Vector3(40.0, 0.0, 0.0)
+	await await_millis(30)
+
+	var first_result: Dictionary = brain.call("acquire", archer, targeting, 0, 70.0, Vector3.ZERO)
+	second.global_position = Vector3(11.0, 0.0, 0.0)
+	var second_result: Dictionary = brain.call("acquire", archer, targeting, 0, 70.0, Vector3.ZERO)
+
+	assert_object(first_result["target"]).is_same(first)
+	assert_object(second_result["target"]).is_same(first)
 
 func test_ignores_enemy_out_of_range() -> void:
 	var a: Node3D = auto_free(Ally.instantiate())

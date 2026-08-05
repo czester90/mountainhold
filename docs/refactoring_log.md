@@ -672,3 +672,37 @@ Behavior changes:
 Remaining risk:
 
 - Wall and ladder brains still own local target/ladder selection until hysteresis and routing follow-ups.
+
+## P1-010 — Add Reassignment Hysteresis
+
+Files changed:
+
+- `scripts/enemy/wall_assault_brain.gd`
+- `scripts/enemy/ladder_assault_brain.gd`
+- `scripts/ally/defender_targeting.gd`
+- `test/enemy_test.gd`
+- `test/ally_test.gd`
+- `docs/refactoring_backlog.md`
+- `docs/refactoring_log.md`
+
+Summary:
+
+- Added cooldown-based sticky defender selection for wall assault units.
+- Added cooldown-based sticky active ladder selection so enemies stop bouncing between nearby ladders.
+- Added defender archer target stickiness while preserving order-mode changes and range checks.
+- Added deterministic tests for wall defender, ladder, and ally target reassignment.
+
+Validation:
+
+- `git diff --check` passed.
+- `make test-target TEST=res://test/enemy_test.gd` passed: 21 test cases, 0 failures.
+- `make test-target TEST=res://test/ally_test.gd` passed assertions: 17 test cases, 0 failures, then exited 101 with the existing orphan/resource cleanup leak.
+- `make import` passed with existing duplicate UID, missing UID, case mismatch, and cleanup warnings.
+
+Behavior changes:
+
+- Units now change objectives less often; they only switch quickly when the new option is meaningfully better or the current one is invalid.
+
+Remaining risk:
+
+- The cooldown values are conservative defaults and may need tuning after a crowded-wave playtest.

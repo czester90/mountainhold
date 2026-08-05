@@ -10,26 +10,42 @@ const ORDER_RETREAT_KEEP := 5
 const GATE_KILL_POINT := Vector3(285.0, 0.0, 500.0)
 const GATE_KILL_RADIUS := 20.0
 const MAX_TARGET_CANDIDATES := 16
+const REASSIGN_COOLDOWN_SEC := 0.9
 const ThreatEvaluatorScript := preload("res://scripts/core/threat_evaluator.gd")
+
+var _locked_target: Node3D = null
+var _locked_order_mode: int = ORDER_AUTO
+var _locked_until_msec: int = 0
 
 func acquire(archer: Node3D, targeting: TargetingComponent, order_mode: int, range: float, muzzle: Vector3) -> Dictionary:
 	if archer == null or targeting == null or not is_instance_valid(archer):
 		return _empty()
+	if _should_keep_locked_target(archer, targeting, order_mode, range, muzzle):
+		return {
+			"target": _locked_target,
+			"aim": _locked_target.global_position + Vector3.UP * targeting.aim_height,
+			"has_los": true,
+			"forced_gate": false,
+		}
 	var ordered := _acquire_order_target(archer, targeting, order_mode, range, muzzle)
 	if ordered.get("target", null) != null:
+		_lock_target(ordered.get("target", null), order_mode)
 		return ordered
 	if _is_gate_defender(archer):
 		var gate_target := _acquire_gate_threat(archer, range, muzzle)
 		if gate_target != null:
+			_lock_target(gate_target, order_mode)
 			return {
 				"target": gate_target,
 				"aim": gate_target.global_position + Vector3.UP * 1.1,
 				"has_los": false,
 				"forced_gate": true,
 			}
-	return _acquire_by_filter(archer, targeting, range, muzzle, func(_enemy: Node3D) -> bool:
+	var acquired := _acquire_by_filter(archer, targeting, range, muzzle, func(_enemy: Node3D) -> bool:
 		return true
 	)
+	_lock_target(acquired.get("target", null), order_mode)
+	return acquired
 
 func _acquire_order_target(archer: Node3D, targeting: TargetingComponent, order_mode: int, range: float, muzzle: Vector3) -> Dictionary:
 	match order_mode:
@@ -162,3 +178,24 @@ func _scene_scope(node: Node) -> Node:
 
 func _empty() -> Dictionary:
 	return {"target": null, "aim": Vector3.INF, "has_los": false, "forced_gate": false}
+
+func _should_keep_locked_target(archer: Node3D, targeting: TargetingComponent, order_mode: int, range: float, muzzle: Vector3) -> bool:
+	if _locked_target == null or not is_instance_valid(_locked_target):
+		return false
+	if _locked_order_mode != order_mode:
+		return false
+	if Time.get_ticks_msec() >= _locked_until_msec:
+		return false
+	if not _same_scene_scope(archer, _locked_target):
+		return false
+	if muzzle.distance_squared_to(_locked_target.global_position) > range * range:
+		return false
+	return true
+
+func _lock_target(target: Variant, order_mode: int) -> void:
+	if target == null or not target is Node3D or not is_instance_valid(target):
+		_locked_target = null
+		return
+	_locked_target = target as Node3D
+	_locked_order_mode = order_mode
+	_locked_until_msec = Time.get_ticks_msec() + int(REASSIGN_COOLDOWN_SEC * 1000.0)

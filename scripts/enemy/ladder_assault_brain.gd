@@ -6,16 +6,22 @@ const CLIMBER_PENALTY := 180.0
 const ENTRY_PENALTY := 260.0
 const QUEUE_PENALTY := 22.0
 const PREFERRED_FOOT_WEIGHT := 0.35
+const REASSIGN_COOLDOWN_SEC := 1.3
+const SWITCH_IMPROVEMENT_RATIO := 0.7
 
 var _last_ladder_name := "-"
 var _last_reason := "idle"
 var _last_queue := Vector3.INF
+var _locked_ladder: Node = null
+var _locked_until_msec: int = 0
 
 func choose_active_ladder(context: Node, body: Node3D, preferred_foot: Vector3 = Vector3.INF) -> Node:
 	var best: Node = null
 	var best_score := INF
 	var best_available: Node = null
 	var best_available_score := INF
+	var locked_score := INF
+	var locked_available := false
 	_last_reason = "no_ladder"
 	_last_ladder_name = "-"
 	_last_queue = Vector3.INF
@@ -46,13 +52,22 @@ func choose_active_ladder(context: Node, body: Node3D, preferred_foot: Vector3 =
 		if available and score < best_available_score:
 			best_available_score = score
 			best_available = ladder
+		if ladder == _locked_ladder:
+			locked_score = score
+			locked_available = available
 		if score < best_score:
 			best_score = score
 			best = ladder
 			_last_queue = queue
 	if best_available != null:
 		best = best_available
+		best_score = best_available_score
+	if _should_keep_locked_ladder(best, best_score, locked_score, locked_available):
+		_last_reason = "ladder_locked"
+		_last_ladder_name = _locked_ladder.name
+		return _locked_ladder
 	if best != null:
+		_lock_ladder(best)
 		_last_reason = "ladder"
 		_last_ladder_name = best.name
 	return best
@@ -117,6 +132,22 @@ func entry_point(ladder: Node, unit: Node = null) -> Vector3:
 
 func debug_summary() -> String:
 	return "%s ladder:%s queue:%s" % [_last_reason, _last_ladder_name, _last_queue]
+
+func _should_keep_locked_ladder(best: Node, best_score: float, locked_score: float, locked_available: bool) -> bool:
+	if _locked_ladder == null or not is_instance_valid(_locked_ladder):
+		return false
+	if not locked_available or locked_score >= INF:
+		return false
+	if best == _locked_ladder:
+		_lock_ladder(_locked_ladder)
+		return true
+	if Time.get_ticks_msec() >= _locked_until_msec:
+		return false
+	return best == null or best_score >= locked_score * SWITCH_IMPROVEMENT_RATIO
+
+func _lock_ladder(ladder: Node) -> void:
+	_locked_ladder = ladder
+	_locked_until_msec = Time.get_ticks_msec() + int(REASSIGN_COOLDOWN_SEC * 1000.0)
 
 func _active_ladders(context: Node) -> Array:
 	if context == null or not context.is_inside_tree():
