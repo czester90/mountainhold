@@ -663,8 +663,11 @@ func _die() -> void:
 	var au := get_node_or_null("/root/Audio")
 	if au:
 		au.play_3d("enemy_death", global_position)
-	if _ladder_target and is_instance_valid(_ladder_target) and _ladder_target.has_method("release_climb"):
-		_ladder_target.call("release_climb", self)
+	if _ladder_target and is_instance_valid(_ladder_target):
+		if _ladder_target.has_method("release_unit"):
+			_ladder_target.call("release_unit", self)
+		elif _ladder_target.has_method("release_climb"):
+			_ladder_target.call("release_climb", self)
 	if _traversal != null and _traversal.has_method("is_active") and bool(_traversal.call("is_active")):
 		_traversal.call("cancel", "unit_died")
 	_ladder_target = null

@@ -104,6 +104,17 @@ func release_entry(unit: Node) -> void:
 	if unit:
 		entry_reservations.erase(unit.get_instance_id())
 
+func release_unit(unit: Node) -> void:
+	if unit == null:
+		return
+	var id := unit.get_instance_id()
+	active_climbers.erase(id)
+	entry_reservations.erase(id)
+	queue_slots.erase(id)
+	landing_slots.erase(id)
+	climb_slots.erase(id)
+	_refresh_state_from_occupancy()
+
 func reserve_climb(unit: Node) -> bool:
 	_prune_climbers()
 	if not can_reserve_climb(unit):
@@ -180,7 +191,7 @@ func debug_unit_status(unit: Node) -> Dictionary:
 func _prune_climbers() -> void:
 	for id in active_climbers.keys():
 		var unit: Variant = active_climbers[id]
-		if _should_prune_climber(unit):
+		if _should_prune_unit_ref(unit) or _should_prune_climber(unit):
 			active_climbers.erase(id)
 			climb_slots.erase(id)
 	_refresh_state_from_occupancy()
@@ -195,16 +206,27 @@ func _prune_entry_reservations() -> void:
 		var entry: Variant = entry_reservations[id]
 		var unit: Variant = entry.get("unit", null) if entry is Dictionary else entry
 		var age := float(entry.get("time", 0.0)) if entry is Dictionary else 0.0
-		if age > ENTRY_RESERVATION_TIMEOUT or not is_instance_valid(unit) or not unit is Node or (unit as Node).is_queued_for_deletion() or not (unit as Node).is_inside_tree():
+		if age > ENTRY_RESERVATION_TIMEOUT or _should_prune_unit_ref(unit):
 			entry_reservations.erase(id)
 
 func _prune_queue_slots() -> void:
 	for id in queue_slots.keys():
 		var unit: Variant = queue_slots[id].get("unit", null) if queue_slots[id] is Dictionary else null
-		if not is_instance_valid(unit) or not unit is Node or (unit as Node).is_queued_for_deletion() or not (unit as Node).is_inside_tree():
+		if _should_prune_unit_ref(unit):
 			queue_slots.erase(id)
 
 func _should_prune_climber(unit: Variant) -> bool:
+	if not unit is Node:
+		return true
+	var node := unit as Node
+	var climbing_state: Variant = node.get("_climbing_ladder")
+	if climbing_state != null and not bool(climbing_state):
+		var traversal := node.get_node_or_null("TraversalController")
+		if traversal == null or not traversal.has_method("is_active") or not bool(traversal.call("is_active")):
+			return true
+	return false
+
+func _should_prune_unit_ref(unit: Variant) -> bool:
 	if not is_instance_valid(unit):
 		return true
 	if not unit is Node:
@@ -214,11 +236,6 @@ func _should_prune_climber(unit: Variant) -> bool:
 		return true
 	if node.has_method("is_active_enemy") and not bool(node.call("is_active_enemy")):
 		return true
-	var climbing_state: Variant = node.get("_climbing_ladder")
-	if climbing_state != null and not bool(climbing_state):
-		var traversal := node.get_node_or_null("TraversalController")
-		if traversal == null or not traversal.has_method("is_active") or not bool(traversal.call("is_active")):
-			return true
 	return false
 
 func queue_point(index: int = 0) -> Vector3:
@@ -304,7 +321,7 @@ func _lane_from_id(id: int) -> int:
 func _prune_landing_slots() -> void:
 	for id in landing_slots.keys():
 		var unit: Variant = landing_slots[id].get("unit", null) if landing_slots[id] is Dictionary else null
-		if not is_instance_valid(unit) or not unit is Node or (unit as Node).is_queued_for_deletion() or not (unit as Node).is_inside_tree():
+		if _should_prune_unit_ref(unit):
 			landing_slots.erase(id)
 
 func _first_free_landing_slot() -> int:
@@ -337,6 +354,7 @@ func _break() -> void:
 	remove_from_group("siege_ladder_active")
 	if _link:
 		_link.enabled = false
+	_clear_reservations()
 	destroyed.emit(self)
 	queue_free()
 
@@ -344,6 +362,14 @@ func mark_released() -> void:
 	_deployed = false
 	_state = LadderState.RELEASED
 	remove_from_group("siege_ladder_active")
+	_clear_reservations()
+
+func _clear_reservations() -> void:
+	active_climbers.clear()
+	entry_reservations.clear()
+	queue_slots.clear()
+	landing_slots.clear()
+	climb_slots.clear()
 
 func _refresh_state_from_occupancy() -> void:
 	if _state == LadderState.DESTROYED or _state == LadderState.RELEASED:

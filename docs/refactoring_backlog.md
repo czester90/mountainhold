@@ -245,11 +245,11 @@ Observed warnings and issues:
 - Problem: Dead carriers, destroyed ladders, and climbed units can leave stale references/reservations.
 - Affected files: `scripts/enemy/ladder_orc_enemy.gd`, `scripts/enemy/siege_ladder.gd`, `scripts/enemy/ladder_assault_brain.gd`, `scripts/core/combat_registry.gd`.
 - Expected result: All ladder reservations are released exactly once and stale refs are ignored.
-- Implementation notes: Add cleanup assertions in debug mode.
+- Implementation notes: Added `release_unit()` to clear climb, entry, queue, landing, and lane slots together. Dead/inactive units are now pruned from all ladder reservation dictionaries, destroyed/released ladders clear every reservation, and `Enemy._die()` uses full ladder release when available.
 - Dependencies: P1-004.
 - Risk: medium.
 - Test strategy: kill one carrier, kill both carriers, destroy deployed ladder, climb complete.
-- Status: TODO.
+- Status: DONE.
 
 ### P1-006 — Ladder Queue And Capacity Rules
 

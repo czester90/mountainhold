@@ -481,3 +481,37 @@ Remaining risk:
 
 - Cleanup paths can still leave stale reservations after carrier death or ladder destruction; P1-005 should make those releases explicit.
 - Full `make test` remains blocked by the previously recorded `siege_smoke_test.gd` hang/crash behavior.
+
+## 2026-08-05 — P1-005 Harden Ladder Cleanup
+
+Status: DONE for stale reservation cleanup.
+
+Files changed:
+
+- `scripts/enemy/siege_ladder.gd`
+- `scripts/enemy/enemy.gd`
+- `test/enemy_test.gd`
+- `docs/refactoring_backlog.md`
+- `docs/refactoring_log.md`
+
+Summary:
+
+- Added `SiegeLadder.release_unit()` to clear climb, entry, queue, landing, and lane reservations in one path.
+- Extended ladder pruning so dead/inactive enemies are removed from entry, queue, landing, and active climber dictionaries.
+- Cleared all reservations when a ladder is destroyed or marked released.
+- Routed `Enemy._die()` through full ladder release when available, with the older climb-only release as fallback.
+- Added tests for dead-unit reservation cleanup and destroyed-ladder reservation cleanup.
+- Marked P1-005 complete. P1-006 queue/capacity rules is next.
+
+Validation:
+
+- `make test-target TEST=res://test/enemy_test.gd` passed: 14 test cases, 0 failures.
+
+Behavior changes:
+
+- Dead units no longer keep ladder reservations while their corpse/fade node is still inside the tree.
+
+Remaining risk:
+
+- Queue arbitration is still implicit; P1-006 should make retry/capacity/slot behavior clearer so enemies do not look idle at full ladders.
+- Full `make test` remains blocked by the previously recorded `siege_smoke_test.gd` hang/crash behavior.
