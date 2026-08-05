@@ -742,3 +742,47 @@ Behavior changes:
 Remaining risk:
 
 - The current resources intentionally preserve the old balance; future tuning can change count/pacing per wave.
+
+## P1-012 — Normalize Unit Profile Resources
+
+Files changed:
+
+- `scripts/characters/unit_stats.gd`
+- `scripts/enemy/enemy.gd`
+- `scripts/ally/ally_archer.gd`
+- `scripts/player/fps_bow_player.gd`
+- `data/ally_archer.tres`
+- `data/enemy_archer.tres`
+- `data/enemy_bossram.tres`
+- `data/enemy_infantry.tres`
+- `data/enemy_ladder_orc.tres`
+- `data/enemy_ram.tres`
+- `data/player_hero.tres`
+- `test/enemy_test.gd`
+- `test/ally_test.gd`
+- `test/player_progression_test.gd`
+- `docs/refactoring_backlog.md`
+- `docs/refactoring_log.md`
+
+Summary:
+
+- Added `behavior_tags` to shared unit profiles.
+- Added decision/refresh intervals to `UnitStats` for target refresh, avoidance, wall pressure, and ladder search tuning.
+- Wired enemies and allied archers to use profile-driven refresh values.
+- Exposed behavior tags on player, ally, and enemy runtime nodes.
+
+Validation:
+
+- `git diff --check` passed.
+- `make test-target TEST=res://test/enemy_test.gd` passed: 21 test cases, 0 failures.
+- `make test-target TEST=res://test/player_progression_test.gd` passed: 1 test case, 0 failures.
+- `make test-target TEST=res://test/ally_test.gd` passed assertions: 17 test cases, 0 failures, then exited 101 with the existing orphan/resource cleanup leak.
+- `make import` passed with existing duplicate UID, missing UID, case mismatch, and cleanup warnings.
+
+Behavior changes:
+
+- No balance change intended; current resource values match the old hard-coded defaults unless a unit preset overrides them.
+
+Remaining risk:
+
+- Specialized enemy archers still have a small subclass-specific ranged setup and can be normalized further in a later pass.

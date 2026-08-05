@@ -18,6 +18,8 @@ func test_default_stats() -> void:
 	assert_float(a.arrow_damage).is_equal(25.0)
 	assert_float(a.melee_damage).is_equal(4.0)
 	assert_str(str(a.type_id)).is_equal("ally_archer")
+	assert_bool(a.behavior_tags.has("wall")).is_true()
+	assert_float(a.get("_target_decision_interval")).is_equal(0.45)
 	assert_float(a.defense).is_equal(0.5)
 	assert_float(a.armor).is_equal(0.08)
 

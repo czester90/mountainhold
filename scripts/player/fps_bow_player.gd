@@ -58,6 +58,7 @@ var type_id: StringName = &"hero"
 var display_name: String = "Hero"
 var faction: int = UnitStats.Faction.PLAYER
 var role: int = UnitStats.Role.HERO
+var behavior_tags: PackedStringArray = []
 var level: int = 1
 var xp: int = 0
 var kills: int = 0
@@ -129,6 +130,7 @@ func _apply_stats() -> void:
 	_base_max_arrow_speed = stats.arrow_speed
 	_base_min_arrow_speed = min_arrow_speed
 	spread_min_deg = stats.spread_deg
+	behavior_tags = stats.behavior_tags
 	_apply_progression()
 
 func _apply_progression() -> void:

@@ -322,11 +322,11 @@ Observed warnings and issues:
 - Problem: Unit tuning is spread across `.tres` stats and script exports.
 - Affected files: `data/*.tres`, `scripts/characters/unit_stats.gd`, enemy/ally scenes/scripts.
 - Expected result: Speed, role, attack range, decision interval, armor/defense, and behavior tags live in consistent profiles.
-- Implementation notes: Extend existing `UnitStats` instead of creating parallel config.
+- Implementation notes: Extended `UnitStats` with behavior tags plus decision/refresh intervals and wired enemy, ally, and player runtime fields to read those profile values while preserving previous defaults.
 - Dependencies: P0-003, P0-004.
 - Risk: medium.
 - Test strategy: stat resource tests and scene load tests.
-- Status: TODO.
+- Status: DONE.
 
 ### P1-013 — Add Performance Instrumentation
 

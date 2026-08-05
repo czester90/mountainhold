@@ -6,6 +6,7 @@ const Enemy := preload("res://scenes/enemy/enemy.tscn")
 func test_player_levels_after_fifth_kill_and_scales_combat_stats() -> void:
 	var p: CharacterBody3D = auto_free(Player.new())
 	p._apply_stats()
+	assert_bool(p.behavior_tags.has("hero")).is_true()
 	var e: CharacterBody3D = auto_free(Enemy.instantiate())
 	add_child(e)
 	await await_millis(30)

@@ -56,6 +56,7 @@ var type_id: StringName = &"ally_archer"
 var display_name: String = "Ally Archer"
 var faction: int = UnitStats.Faction.ALLY
 var role: int = UnitStats.Role.ARCHER
+var behavior_tags: PackedStringArray = []
 var level: int = 1
 var xp: int = 0
 var kills: int = 0
@@ -103,6 +104,7 @@ var _base_defense: float = 0.0
 var _base_armor: float = 0.0
 var _recovery_count: int = 0
 var _stuck_event_count: int = 0
+var _target_decision_interval: float = TARGET_REFRESH_INTERVAL
 
 func _ready() -> void:
 	add_to_group("ally")
@@ -145,6 +147,8 @@ func _apply_stats() -> void:
 	spread_deg = stats.spread_deg
 	muzzle_height = stats.muzzle_height
 	speed = stats.speed if stats.speed > 0.0 else speed
+	behavior_tags = stats.behavior_tags
+	_target_decision_interval = stats.decision_interval if stats.decision_interval > 0.0 else TARGET_REFRESH_INTERVAL
 	_apply_progression()
 
 func _setup_character_physics() -> void:
@@ -271,11 +275,11 @@ func _physics_process(delta: float) -> void:
 		_last_debug_reason = &"retreat"
 		return
 	if _should_refresh_target():
-		if _can_run_decision(&"ally_target_refresh", TARGET_REFRESH_INTERVAL, 12):
+		if _can_run_decision(&"ally_target_refresh", _target_decision_interval, 12):
 			var start_us := Time.get_ticks_usec()
 			_current_target = _acquire()
 			_record_perf_us(&"ally_target_acquire", start_us)
-			_target_refresh_t = TARGET_REFRESH_INTERVAL + randf_range(0.0, 0.08)
+			_target_refresh_t = _target_decision_interval + randf_range(0.0, 0.08)
 	if _current_target == null:
 		_release_firing_slot()
 		_last_debug_reason = &"no_target"

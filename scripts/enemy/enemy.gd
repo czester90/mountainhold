@@ -50,6 +50,7 @@ var type_id: StringName = &"enemy"
 var display_name: String = "Enemy"
 var faction: int = UnitStats.Faction.ENEMY
 var role: int = UnitStats.Role.INFANTRY
+var behavior_tags: PackedStringArray = []
 var level: int = 1
 var xp_value: int = 0
 var kill_value: int = 1
@@ -92,6 +93,10 @@ var _cached_wall_pressure_point: Vector3 = Vector3.INF
 var _wall_pressure_refresh_t: float = 0.0
 var _cached_active_ladder: Node = null
 var _ladder_search_t: float = 0.0
+var _avoidance_refresh: float = AVOIDANCE_REFRESH
+var _wall_target_refresh: float = WALL_TARGET_REFRESH
+var _wall_pressure_refresh: float = WALL_PRESSURE_REFRESH
+var _ladder_search_refresh: float = LADDER_SEARCH_REFRESH
 var _mats: Array = []
 var _bases: Array = []
 var _flash: float = 0.0
@@ -203,6 +208,11 @@ func _apply_stats() -> void:
 	attack_range = stats.attack_range
 	attack_damage = stats.melee_attack_damage
 	attack_interval = stats.attack_interval
+	behavior_tags = stats.behavior_tags
+	_avoidance_refresh = stats.avoidance_refresh if stats.avoidance_refresh > 0.0 else AVOIDANCE_REFRESH
+	_wall_target_refresh = stats.wall_target_refresh if stats.wall_target_refresh > 0.0 else WALL_TARGET_REFRESH
+	_wall_pressure_refresh = stats.wall_pressure_refresh if stats.wall_pressure_refresh > 0.0 else WALL_PRESSURE_REFRESH
+	_ladder_search_refresh = stats.ladder_search_refresh if stats.ladder_search_refresh > 0.0 else LADDER_SEARCH_REFRESH
 
 # ---- hooks a subclass overrides ---------------------------------------------------------------
 func _tune() -> void:
@@ -318,7 +328,7 @@ func _best_active_ladder() -> Node:
 		if not (_cached_active_ladder.has_method("is_deployed") and not bool(_cached_active_ladder.call("is_deployed"))):
 			return _cached_active_ladder
 	_cached_active_ladder = null
-	_ladder_search_t = LADDER_SEARCH_REFRESH + randf_range(0.0, 0.16)
+	_ladder_search_t = _ladder_search_refresh + randf_range(0.0, 0.16)
 	if _ladder_brain != null and _ladder_brain.has_method("choose_active_ladder"):
 		var selected: Node = _ladder_brain.call("choose_active_ladder", self, self)
 		if selected != null:
@@ -425,7 +435,7 @@ func _nearest_wall_defender() -> Node3D:
 		if Vector2(cached_delta.x, cached_delta.z).length_squared() <= WALL_TARGET_RANGE * WALL_TARGET_RANGE and absf(cached_delta.y) <= WALL_ROUTED_HEIGHT_DELTA:
 			return _cached_wall_defender
 	_cached_wall_defender = null
-	_wall_defender_refresh_t = WALL_TARGET_REFRESH + randf_range(0.0, 0.18)
+	_wall_defender_refresh_t = _wall_target_refresh + randf_range(0.0, 0.18)
 	var best: Node3D = null
 	var best_score := INF
 	var candidates := _nearby_wall_defenders()
@@ -528,7 +538,7 @@ func _move_to_wall_pressure(delta: float) -> bool:
 func _wall_pressure_point() -> Vector3:
 	if _cached_wall_pressure_point != Vector3.INF and _wall_pressure_refresh_t > 0.0:
 		return _cached_wall_pressure_point
-	_wall_pressure_refresh_t = WALL_PRESSURE_REFRESH + randf_range(0.0, 0.25)
+	_wall_pressure_refresh_t = _wall_pressure_refresh + randf_range(0.0, 0.25)
 	if _wall_brain != null and _wall_brain.has_method("pressure_point"):
 		_cached_wall_pressure_point = _wall_brain.pressure_point(self, self)
 		return _cached_wall_pressure_point
@@ -817,11 +827,11 @@ func _safe_ground_y(point: Vector3) -> float:
 func _avoidance_direction(desired_dir: Vector3) -> Vector3:
 	_avoidance_cache_t -= get_physics_process_delta_time()
 	if _avoidance_cache_t <= 0.0:
-		if _can_run_decision(&"enemy_separation", AVOIDANCE_REFRESH, 32):
+		if _can_run_decision(&"enemy_separation", _avoidance_refresh, 32):
 			var start_us := Time.get_ticks_usec()
 			_avoidance_cache = _unit_separation_vector(global_position)
 			_record_perf_us(&"enemy_separation", start_us)
-			_avoidance_cache_t = AVOIDANCE_REFRESH + randf() * 0.08
+			_avoidance_cache_t = _avoidance_refresh + randf() * 0.08
 	var push := _avoidance_cache
 	if push.length() < 0.001:
 		return desired_dir

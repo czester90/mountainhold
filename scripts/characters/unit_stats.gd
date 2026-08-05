@@ -20,6 +20,7 @@ enum Role { HERO, INFANTRY, ARCHER, RAM, BOSS_RAM, LADDER_ORC }
 @export var xp_value: int = 0
 @export var kill_value: int = 1
 @export var kills: int = 0
+@export var behavior_tags: PackedStringArray = []
 
 ## shared
 @export var max_hp: float = 100.0
@@ -35,6 +36,11 @@ enum Role { HERO, INFANTRY, ARCHER, RAM, BOSS_RAM, LADDER_ORC }
 @export var attack_damage: float = 6.0
 @export var melee_attack_damage: float = 6.0
 @export var attack_interval: float = 1.3
+@export var decision_interval: float = 0.45
+@export var avoidance_refresh: float = 0.32
+@export var wall_target_refresh: float = 0.42
+@export var wall_pressure_refresh: float = 0.7
+@export var ladder_search_refresh: float = 0.55
 
 ## ranged (archer)
 @export var ranged_attack_damage: float = 25.0
