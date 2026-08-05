@@ -74,3 +74,33 @@ Behavior changes:
 Remaining risk:
 
 - Full `make test` remains blocked by the previously recorded `siege_smoke_test.gd` hang/crash behavior.
+
+## 2026-08-05 — P0-006 Inventory Hardcoded Fortress Data
+
+Status: DONE.
+
+Files changed:
+
+- `docs/hardcoded_fortress_inventory.md`
+- `docs/refactoring_backlog.md`
+- `docs/refactoring_log.md`
+
+Summary:
+
+- Audited hardcoded fortress/world coordinates used by spawner, siege director, ladder carriers, defender targeting/positioning/orders, ally placement, fortress generation, combat registry, and traversal.
+- Added coordinate inventory IDs `HF-001` through `HF-012` with owner, meaning, risk, and replacement path.
+- Added tuning inventory IDs `HT-001` through `HT-010` for AI cadence, wall movement, ladder scoring, wave presentation, registry grid, and defender scoring constants.
+- Marked P0-006 complete and selected P0-010 navigation architecture documentation as the next backlog task.
+
+Validation:
+
+- Ran grep audit over `scripts/enemy`, `scripts/ally`, `scripts/castle`, `scripts/characters`, and `scripts/core` for `Vector3`, ranges, spawn/ladder/wall/gate/keep/staging/targeting terms.
+
+Behavior changes:
+
+- None. Documentation only.
+
+Remaining risk:
+
+- The inventory is manual and should be refreshed after P0-010/P0-007 introduce semantic fortress queries.
+- Full `make test` remains blocked by the previously recorded `siege_smoke_test.gd` hang/crash behavior.

@@ -106,7 +106,7 @@ Observed warnings and issues:
 - Dependencies: P0-001.
 - Risk: low.
 - Test strategy: docs-only plus grep verification.
-- Status: TODO.
+- Status: DONE.
 
 ### P0-007 — Define Fortress Markers And Regions
 
@@ -440,6 +440,6 @@ Observed warnings and issues:
 
 ## First Selected Task
 
-Next implementation task: P0-006 — Inventory Hardcoded Fortress Data.
+Next implementation task: P0-010 — Document Navigation Architecture.
 
-Reason: P0-002 now exposes enough runtime state to debug ladder/stuck behavior safely. P0-006 is the next requested priority and should identify every hardcoded fortress coordinate/range before we replace them with model/region data.
+Reason: P0-006 identified the hardcoded fortress coordinates/ranges that navigation depends on. P0-010 should now define ownership boundaries before those values move into `CastleModel` queries and tuning resources.
