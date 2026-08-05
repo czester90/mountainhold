@@ -311,11 +311,11 @@ Observed warnings and issues:
 - Problem: Wave composition, staging, delay, spawn width, and escalation are still too script-driven.
 - Affected files: `scripts/enemy/wave_spawner.gd`, `data/**`, `scenes/play.tscn`.
 - Expected result: Waves can be configured as resources with counts, roles, staging behavior, and pacing.
-- Implementation notes: Keep defaults identical to current exported values.
+- Implementation notes: Added `WaveDefinition` resources for wave composition, pacing, and staging values. `WaveSpawner` now uses configured resources when present and keeps the old exported `waves` array as fallback.
 - Dependencies: P1-008, P1-009.
 - Risk: medium.
 - Test strategy: resource loading and spawn count tests.
-- Status: TODO.
+- Status: DONE.
 
 ### P1-012 — Normalize Unit Profile Resources
 

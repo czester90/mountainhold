@@ -706,3 +706,39 @@ Behavior changes:
 Remaining risk:
 
 - The cooldown values are conservative defaults and may need tuning after a crowded-wave playtest.
+
+## P1-011 — Introduce WaveDefinition Resources
+
+Files changed:
+
+- `scripts/enemy/wave_definition.gd`
+- `scripts/enemy/wave_spawner.gd`
+- `data/wave_01.tres`
+- `data/wave_02.tres`
+- `data/wave_03.tres`
+- `data/wave_04.tres`
+- `scenes/play.tscn`
+- `test/wave_spawner_test.gd`
+- `docs/refactoring_backlog.md`
+- `docs/refactoring_log.md`
+
+Summary:
+
+- Added resource-driven wave definitions for counts, pacing, auto-start delay, and staging layout.
+- Added four default wave resources matching the previous script-generated compositions.
+- Wired `scenes/play.tscn` to use the default wave resources.
+- Kept the old exported `waves` array as fallback for compatibility.
+
+Validation:
+
+- `git diff --check` passed.
+- `make test-target TEST=res://test/wave_spawner_test.gd` passed: 9 test cases, 0 failures.
+- `make import` passed with existing duplicate UID, missing UID, case mismatch, and cleanup warnings.
+
+Behavior changes:
+
+- Wave tuning can now happen in `.tres` resources without editing `WaveSpawner`.
+
+Remaining risk:
+
+- The current resources intentionally preserve the old balance; future tuning can change count/pacing per wave.

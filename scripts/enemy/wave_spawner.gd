@@ -38,6 +38,7 @@ const ROUTE := [
 @export var spawn_centre: Vector3 = Vector3(248.0, 0.0, 500.0)  # western field, ~36 m out from the gate
 @export var spawn_spread: Vector3 = Vector3(6.0, 0.0, 30.0)
 @export var waves: Array[int] = [14, 20, 30, 42]                # active-unit budget; ladder crews add pressure
+@export var wave_definitions: Array[Resource] = []
 @export var wave_gap: float = 6.0
 @export var spawn_interval: float = 1.05
 @export var auto_start: bool = true
@@ -99,6 +100,7 @@ func gate_open() -> bool: return _gate_hp <= 0.0          # breached — enemies
 func keep_hp() -> float: return _keep_hp
 func keep_fraction() -> float: return clampf(_keep_hp / keep_max_hp, 0.0, 1.0)
 func total_waves() -> int: return waves.size()
+func configured_wave_count() -> int: return _wave_count()
 func finished() -> bool: return _finished
 func lost() -> bool: return _keep_hp <= 0.0              # the castle falls only when the KEEP falls
 func won() -> bool: return _finished and alive_count() == 0 and not lost()
@@ -139,9 +141,9 @@ func _valid_spawn_point(point: Vector3) -> Vector3:
 
 func _run() -> void:
 	await get_tree().process_frame                     # let the scene finish setting up before the first spawn
-	for i in waves.size():
+	for i in _wave_count():
 		_wave = i + 1
-		var kinds := _wave_kinds(i, waves[i])
+		var kinds := _wave_kinds(i, _wave_budget(i))
 		if staged_waves:
 			await _stage_wave(kinds)
 			await _wait_for_assault_start()
@@ -149,12 +151,13 @@ func _run() -> void:
 		else:
 			for k in kinds:
 				_spawn_one(k)
-				await get_tree().create_timer(spawn_interval).timeout
+				await get_tree().create_timer(_spawn_interval_for(i)).timeout
 		while alive_count() > 0:
 			await get_tree().create_timer(0.5).timeout
-		if _wave < waves.size():
-			_next_in = wave_gap
-			await get_tree().create_timer(wave_gap).timeout
+		if _wave < _wave_count():
+			var gap := _wave_gap_for(i)
+			_next_in = gap
+			await get_tree().create_timer(gap).timeout
 			_next_in = 0.0
 	_finished = true
 
@@ -183,7 +186,7 @@ func _stage_wave(kinds: Array) -> void:
 func _wait_for_assault_start() -> void:
 	if not staged_waves:
 		return
-	var wait_left := staged_auto_start_delay
+	var wait_left := _staged_auto_start_delay_for(_wave - 1)
 	_next_in = wait_left
 	while not _assault_started and wait_left > 0.0:
 		await get_tree().create_timer(0.1).timeout
@@ -237,7 +240,7 @@ func _process(delta: float) -> void:
 		# masons patch the gate during the lull between waves (a breached gate at 0 stays breached);
 		# capped, so the siege still trends toward the breach climax — holding a wave well pays off next wave
 		if _gate_hp > 0.0:
-			_gate_hp = minf(gate_max_hp * 0.85, _gate_hp + gate_max_hp * 0.15 / wave_gap * delta)
+			_gate_hp = minf(gate_max_hp * 0.85, _gate_hp + gate_max_hp * 0.15 / maxf(_wave_gap_for(_wave - 1), 0.001) * delta)
 
 func time_to_next_wave() -> float:
 	return _next_in
@@ -251,6 +254,11 @@ func waiting_for_assault() -> bool:
 # wave composition: mostly infantry, ~30% archers, ladder pressure from wave 1,
 # plus rams from wave 2 onward. Only rams can break the gate; ladder orcs must climb.
 func _wave_kinds(idx: int, n: int) -> Array:
+	var definition: Resource = _wave_definition(idx)
+	if definition != null:
+		var configured: Array = definition.call("unit_kinds")
+		_shuffle_non_ladders(configured)
+		return configured
 	var out: Array = []
 	var rams: int = idx                                    # 0,1,2,3 — escalating (the ram is the real gate threat)
 	var ladder_crews: int = 4 + idx                        # each crew brings two fast carriers and one long ladder
@@ -425,8 +433,11 @@ func _next_staging_point() -> Vector3:
 	var row := int(_staged_spawn_index / columns)
 	var col := _staged_spawn_index % columns
 	var t := 0.5 if columns == 1 else float(col) / float(columns - 1)
-	var z := spawn_centre.z - staging_width * 0.5 + staging_width * t
-	var x := spawn_centre.x - staging_horizon_distance - float(row) * staging_row_gap
+	var width := _staging_width_for(_wave - 1)
+	var horizon_distance := _staging_horizon_distance_for(_wave - 1)
+	var row_gap := _staging_row_gap_for(_wave - 1)
+	var z := spawn_centre.z - width * 0.5 + width * t
+	var x := spawn_centre.x - horizon_distance - float(row) * row_gap
 	_staged_spawn_index += 1
 	var staged := Vector3(x + randf_range(-1.2, 1.2), _ground(x, z) + 0.15, z + randf_range(-1.0, 1.0))
 	return _valid_spawn_point(staged)
@@ -436,6 +447,44 @@ func _staged_unit_count(kinds: Array) -> int:
 	for kind in kinds:
 		count += LADDER_CARRIERS_PER_CREW + LADDER_ESCORTS_PER_CREW if kind == "ladder_crew" else 1
 	return count
+
+func _wave_count() -> int:
+	return wave_definitions.size() if not wave_definitions.is_empty() else waves.size()
+
+func _wave_definition(index: int) -> Resource:
+	if index < 0 or index >= wave_definitions.size():
+		return null
+	return wave_definitions[index]
+
+func _wave_budget(index: int) -> int:
+	var definition: Resource = _wave_definition(index)
+	if definition != null and definition.get("active_budget") != null:
+		return int(definition.get("active_budget"))
+	return waves[index] if index >= 0 and index < waves.size() else 0
+
+func _wave_gap_for(index: int) -> float:
+	var definition: Resource = _wave_definition(index)
+	return float(definition.get("wave_gap")) if definition != null and definition.get("wave_gap") != null else wave_gap
+
+func _spawn_interval_for(index: int) -> float:
+	var definition: Resource = _wave_definition(index)
+	return float(definition.get("spawn_interval")) if definition != null and definition.get("spawn_interval") != null else spawn_interval
+
+func _staged_auto_start_delay_for(index: int) -> float:
+	var definition: Resource = _wave_definition(index)
+	return float(definition.get("staged_auto_start_delay")) if definition != null and definition.get("staged_auto_start_delay") != null else staged_auto_start_delay
+
+func _staging_horizon_distance_for(index: int) -> float:
+	var definition: Resource = _wave_definition(index)
+	return float(definition.get("staging_horizon_distance")) if definition != null and definition.get("staging_horizon_distance") != null else staging_horizon_distance
+
+func _staging_width_for(index: int) -> float:
+	var definition: Resource = _wave_definition(index)
+	return float(definition.get("staging_width")) if definition != null and definition.get("staging_width") != null else staging_width
+
+func _staging_row_gap_for(index: int) -> float:
+	var definition: Resource = _wave_definition(index)
+	return float(definition.get("staging_row_gap")) if definition != null and definition.get("staging_row_gap") != null else staging_row_gap
 
 func _spawn_point_for_ladder_foot(foot: Vector3, normal: Vector3) -> Vector3:
 	return _siege_director.spawn_point_for_ladder_foot(foot, normal) if _siege_director else foot

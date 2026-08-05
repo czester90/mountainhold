@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="WaveDefinition" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://scripts/enemy/wave_definition.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+active_budget = 42
+infantry_count = 23
+archer_count = 9
+ladder_crew_count = 7
+ram_count = 2
+bossram_count = 1
+wave_gap = 6.0
+spawn_interval = 1.05
+staged_auto_start_delay = 7.0
+staging_horizon_distance = 22.0
+staging_width = 96.0
+staging_row_gap = 3.2

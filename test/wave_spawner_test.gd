@@ -2,6 +2,8 @@ extends GdUnitTestSuite
 
 const WaveSpawnerScript := preload("res://scripts/enemy/wave_spawner.gd")
 const SiegeDirectorScript := preload("res://scripts/enemy/siege_director.gd")
+const WaveOne := preload("res://data/wave_01.tres")
+const WaveFour := preload("res://data/wave_04.tres")
 
 func test_wave_composition_includes_ladder_orcs() -> void:
 	var spawner: Node3D = auto_free(WaveSpawnerScript.new())
@@ -34,6 +36,24 @@ func test_staged_wave_expands_ladder_crews_into_full_formation() -> void:
 		spawner.call("_next_staging_point")
 	var last: Vector3 = spawner.call("_next_staging_point")
 	assert_float(absf(last.z - first.z)).is_greater(40.0)
+
+func test_wave_definition_resources_match_default_composition() -> void:
+	var spawner: Node3D = auto_free(WaveSpawnerScript.new())
+	spawner.set("auto_start", false)
+	var definitions: Array[Resource] = [WaveOne, WaveFour]
+	spawner.set("wave_definitions", definitions)
+	add_child(spawner)
+
+	var first_wave: Array = spawner.call("_wave_kinds", 0, 14)
+	var final_wave: Array = spawner.call("_wave_kinds", 1, 42)
+
+	assert_int(spawner.call("configured_wave_count")).is_equal(2)
+	assert_int(first_wave.count("ladder_crew")).is_equal(4)
+	assert_int(first_wave.count("archer")).is_equal(3)
+	assert_int(first_wave.count("infantry")).is_equal(7)
+	assert_int(final_wave.count("bossram")).is_equal(1)
+	assert_int(final_wave.count("ram")).is_equal(2)
+	assert_int(final_wave.count("ladder_crew")).is_equal(7)
 
 func test_siege_director_builds_wall_width_assault_sectors() -> void:
 	var director: Node3D = auto_free(SiegeDirectorScript.new())

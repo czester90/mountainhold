@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3 uid="uid://cplay0mtnhld12"]
+[gd_scene load_steps=17 format=3 uid="uid://cplay0mtnhld12"]
 
 [ext_resource type="PackedScene" path="res://scenes/castle/fortress.tscn" id="1"]
 [ext_resource type="PackedScene" path="res://scenes/player/fps_bow_player.tscn" id="2"]
@@ -13,6 +13,10 @@
 [ext_resource type="Script" path="res://scripts/core/combat_registry.gd" id="11"]
 [ext_resource type="Script" path="res://scripts/core/decision_scheduler.gd" id="12"]
 [ext_resource type="Script" path="res://scripts/core/perf_monitor.gd" id="13"]
+[ext_resource type="Resource" path="res://data/wave_01.tres" id="14"]
+[ext_resource type="Resource" path="res://data/wave_02.tres" id="15"]
+[ext_resource type="Resource" path="res://data/wave_03.tres" id="16"]
+[ext_resource type="Resource" path="res://data/wave_04.tres" id="17"]
 
 [node name="Play" type="Node3D"]
 
@@ -34,6 +38,7 @@ script = ExtResource("13")
 
 [node name="WaveSpawner" type="Node3D" parent="."]
 script = ExtResource("3")
+wave_definitions = Array[Resource]([ExtResource("14"), ExtResource("15"), ExtResource("16"), ExtResource("17")])
 
 [node name="DefenderOrders" type="Node" parent="."]
 script = ExtResource("10")
