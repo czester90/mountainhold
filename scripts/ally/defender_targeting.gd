@@ -10,6 +10,7 @@ const ORDER_RETREAT_KEEP := 5
 const GATE_KILL_POINT := Vector3(285.0, 0.0, 500.0)
 const GATE_KILL_RADIUS := 20.0
 const MAX_TARGET_CANDIDATES := 16
+const ThreatEvaluatorScript := preload("res://scripts/core/threat_evaluator.gd")
 
 func acquire(archer: Node3D, targeting: TargetingComponent, order_mode: int, range: float, muzzle: Vector3) -> Dictionary:
 	if archer == null or targeting == null or not is_instance_valid(archer):
@@ -80,11 +81,7 @@ func _scored_candidates(archer: Node3D, range: float, muzzle: Vector3, accepts: 
 		var dist_sq := muzzle.distance_squared_to(enemy_3d.global_position)
 		if dist_sq > range_sq:
 			continue
-		var score := dist_sq
-		if enemy_3d.is_in_group("ram"):
-			score *= 0.4
-		elif enemy_3d.is_in_group("ladder"):
-			score *= 0.55
+		var score: float = ThreatEvaluatorScript.weighted_distance_score(muzzle, enemy_3d, 0.4, 0.55)
 		out.append([score, enemy_3d])
 	out.sort_custom(func(a, b): return a[0] < b[0])
 	return out
@@ -100,13 +97,10 @@ func _acquire_gate_threat(archer: Node3D, range: float, muzzle: Vector3) -> Node
 			continue
 		if muzzle.distance_squared_to(enemy_3d.global_position) > range * range:
 			continue
-		var ep := enemy_3d.global_position
-		var gate_d := Vector2(ep.x - GATE_KILL_POINT.x, ep.z - GATE_KILL_POINT.z).length()
+		var gate_d := ThreatEvaluatorScript.flat_distance_to_point(enemy_3d.global_position, GATE_KILL_POINT)
 		if gate_d > GATE_KILL_RADIUS and not enemy_3d.is_in_group("ladder"):
 			continue
-		var score := gate_d * 20.0 + muzzle.distance_to(ep)
-		if enemy_3d.is_in_group("ladder"):
-			score *= 0.5
+		var score: float = ThreatEvaluatorScript.gate_threat_score(muzzle, enemy_3d, GATE_KILL_POINT, 20.0, 0.5)
 		if score < best_score:
 			best_score = score
 			best = enemy_3d
@@ -124,9 +118,7 @@ func _acquire_blocked_threat(archer: Node3D, range: float, muzzle: Vector3) -> N
 		var dist_sq := muzzle.distance_squared_to(enemy_3d.global_position)
 		if dist_sq > range * range:
 			continue
-		var score := dist_sq
-		if enemy_3d.is_in_group("ladder"):
-			score *= 0.35
+		var score: float = ThreatEvaluatorScript.weighted_distance_score(muzzle, enemy_3d, 1.0, 0.35)
 		if _is_gate_threat(enemy_3d):
 			score *= 0.45
 		if score < best_score:
@@ -150,8 +142,7 @@ func _is_gate_defender(archer: Node3D) -> bool:
 	return archer.global_position.x >= 283.0 and archer.global_position.x <= 286.8 and absf(archer.global_position.z - GATE_KILL_POINT.z) <= 7.0
 
 func _is_gate_threat(enemy: Node3D) -> bool:
-	var pos := enemy.global_position
-	return Vector2(pos.x - GATE_KILL_POINT.x, pos.z - GATE_KILL_POINT.z).length() <= GATE_KILL_RADIUS or enemy.is_in_group("ladder")
+	return ThreatEvaluatorScript.is_near_flat_point(enemy, GATE_KILL_POINT, GATE_KILL_RADIUS) or enemy.is_in_group("ladder")
 
 func _is_enemy_archer(enemy: Node3D) -> bool:
 	var type_value: Variant = enemy.get("type_id")

@@ -212,11 +212,11 @@ Observed warnings and issues:
 - Problem: Enemy archers, defenders, and assault brains have separate target heuristics.
 - Affected files: `scripts/characters/targeting_component.gd`, `scripts/ally/defender_targeting.gd`, `scripts/enemy/archer_enemy.gd`, `scripts/core/combat_registry.gd`.
 - Expected result: One threat scoring API ranks visible, reachable, high-value targets.
-- Implementation notes: Start with a pure scoring helper and keep old weights as defaults.
+- Implementation notes: Added pure `ThreatEvaluator` distance/role/gate/priority scoring helper and routed `DefenderTargeting` through it while preserving previous weights.
 - Dependencies: P0-014, P1-001.
 - Risk: medium.
 - Test strategy: deterministic scoring tests.
-- Status: TODO.
+- Status: DONE.
 
 ### P1-003 — Add Decision Scheduling Budgets
 

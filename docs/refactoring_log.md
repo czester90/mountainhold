@@ -251,3 +251,39 @@ Remaining risk:
 
 - Full `make test` remains blocked by the previously recorded `siege_smoke_test.gd` hang/crash behavior.
 - Target priority itself is not centralized yet; it belongs to P1-002.
+
+## 2026-08-05 — P1-002 Centralize Threat Evaluation
+
+Status: DONE for defender targeting.
+
+Files changed:
+
+- `scripts/core/threat_evaluator.gd`
+- `scripts/ally/defender_targeting.gd`
+- `test/threat_evaluator_test.gd`
+- `docs/refactoring_backlog.md`
+- `docs/refactoring_log.md`
+
+Summary:
+
+- Added a pure `ThreatEvaluator` helper for distance scoring, ram/ladder role weights, flat XZ distance, gate threat scoring, and priority-zone scoring.
+- Routed defender candidate scoring, gate threat scoring, blocked threat scoring, and gate-threat checks through the shared helper.
+- Preserved previous defender weights exactly: ram `0.4`, ladder `0.55`, blocked ladder `0.35`, gate threat `0.45`, and forced-gate ladder `0.5`.
+- Added deterministic scoring tests so future AI simplification can change heuristics intentionally instead of accidentally.
+- Marked P1-002 complete. P1-003 decision scheduling budgets remains the next performance-safe task.
+
+Validation:
+
+- `make test-target TEST=res://test/threat_evaluator_test.gd` passed: 5 test cases, 0 failures.
+- `make test-target TEST=res://test/components_test.gd` passed: 5 test cases, 0 failures.
+- `make test-target TEST=res://test/ally_test.gd` passed all 16 test cases, then exited `101` because of the existing Godot cleanup/resource leak issue.
+- `make import` passed with existing duplicate UID, missing UID, asset case mismatch, and cleanup/resource leak warnings.
+
+Behavior changes:
+
+- None intended. Defender target ranking now calls a shared scorer but uses the same formulas and weights as before.
+
+Remaining risk:
+
+- `TargetingComponent` and `ArcherEnemy` still have local scoring loops; migrate them after this helper is stable.
+- Full `make test` remains blocked by the previously recorded `siege_smoke_test.gd` hang/crash behavior.
