@@ -3,6 +3,15 @@ extends Node3D
 
 signal destroyed(ladder: Node)
 
+enum LadderState {
+	CARRIED,
+	DEPLOYING,
+	DEPLOYED,
+	OCCUPIED,
+	DESTROYED,
+	RELEASED,
+}
+
 @export var max_hp: float = 480.0
 @export var climb_capacity: int = 3
 @export var climb_speed: float = 4.2
@@ -29,6 +38,7 @@ var _link: NavigationLink3D = null
 var _body: StaticBody3D = null
 var _visual: Node3D = null
 var _deployed := false
+var _state: LadderState = LadderState.CARRIED
 
 func _ready() -> void:
 	hp = max_hp
@@ -45,6 +55,7 @@ func deploy(foot_pos: Vector3, top_pos: Vector3, outward: Vector3) -> void:
 	top = top_pos
 	normal = outward.normalized() if outward.length() > 0.01 else Vector3.FORWARD
 	_deployed = true
+	_state = LadderState.DEPLOYED
 	add_to_group("siege_ladder_active")
 	global_position = Vector3.ZERO
 	_build_visual()
@@ -52,7 +63,14 @@ func deploy(foot_pos: Vector3, top_pos: Vector3, outward: Vector3) -> void:
 	_build_link()
 
 func is_deployed() -> bool:
-	return _deployed
+	return _state == LadderState.DEPLOYED or _state == LadderState.OCCUPIED
+
+func ladder_state() -> LadderState:
+	_refresh_state_from_occupancy()
+	return _state
+
+func ladder_state_name() -> String:
+	return _ladder_state_name(ladder_state())
 
 func can_reserve_climb(unit: Node) -> bool:
 	_prune_climbers()
@@ -95,6 +113,7 @@ func reserve_climb(unit: Node) -> bool:
 	climb_slots[id] = _first_free_climb_slot()
 	entry_reservations.erase(id)
 	queue_slots.erase(id)
+	_refresh_state_from_occupancy()
 	return true
 
 func release_climb(unit: Node) -> void:
@@ -104,6 +123,7 @@ func release_climb(unit: Node) -> void:
 		entry_reservations.erase(id)
 		queue_slots.erase(id)
 		climb_slots.erase(id)
+	_refresh_state_from_occupancy()
 
 func active_climber_count() -> int:
 	_prune_climbers()
@@ -126,6 +146,8 @@ func debug_summary() -> Dictionary:
 		"entry": entry_count(),
 		"queued": queue_count(),
 		"deployed": _deployed,
+		"state": ladder_state_name(),
+		"state_id": ladder_state(),
 	}
 
 func debug_unit_status(unit: Node) -> Dictionary:
@@ -149,6 +171,8 @@ func debug_unit_status(unit: Node) -> Dictionary:
 		"unit_queued": queued,
 		"unit_queue_slot": int(queue_slots[id].get("slot", -1)) if queued and queue_slots[id] is Dictionary else -1,
 		"unit_climb_slot": int(climb_slots[id]) if id != 0 and climb_slots.has(id) else -1,
+		"state": ladder_state_name(),
+		"state_id": ladder_state(),
 		"foot": foot,
 		"top": top,
 	}
@@ -159,6 +183,7 @@ func _prune_climbers() -> void:
 		if _should_prune_climber(unit):
 			active_climbers.erase(id)
 			climb_slots.erase(id)
+	_refresh_state_from_occupancy()
 
 func _tick_entry_reservations(delta: float) -> void:
 	for id in entry_reservations.keys():
@@ -308,11 +333,40 @@ func take_damage(amount: float, _from_pos: Vector3 = Vector3.INF) -> void:
 
 func _break() -> void:
 	_deployed = false
+	_state = LadderState.DESTROYED
 	remove_from_group("siege_ladder_active")
 	if _link:
 		_link.enabled = false
 	destroyed.emit(self)
 	queue_free()
+
+func mark_released() -> void:
+	_deployed = false
+	_state = LadderState.RELEASED
+	remove_from_group("siege_ladder_active")
+
+func _refresh_state_from_occupancy() -> void:
+	if _state == LadderState.DESTROYED or _state == LadderState.RELEASED:
+		return
+	if not _deployed:
+		return
+	_state = LadderState.OCCUPIED if active_climbers.size() > 0 else LadderState.DEPLOYED
+
+func _ladder_state_name(state: LadderState) -> String:
+	match state:
+		LadderState.CARRIED:
+			return "carried"
+		LadderState.DEPLOYING:
+			return "deploying"
+		LadderState.DEPLOYED:
+			return "deployed"
+		LadderState.OCCUPIED:
+			return "occupied"
+		LadderState.DESTROYED:
+			return "destroyed"
+		LadderState.RELEASED:
+			return "released"
+	return "unknown"
 
 func _build_link() -> void:
 	if _link:

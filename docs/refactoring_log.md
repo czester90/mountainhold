@@ -448,3 +448,36 @@ Remaining risk:
 
 - The pool now reduces projectile churn, but manual high-volume volleys should still be profiled with F3 perf lines to confirm projectile churn is no longer the dominant spike.
 - Full `make test` remains blocked by the previously recorded `siege_smoke_test.gd` hang/crash behavior.
+
+## 2026-08-05 — P1-004 Formalize Ladder State Machine
+
+Status: DONE for state visibility and diagnostics.
+
+Files changed:
+
+- `scripts/enemy/siege_ladder.gd`
+- `scripts/enemy/ladder_orc_enemy.gd`
+- `test/enemy_test.gd`
+- `docs/refactoring_backlog.md`
+- `docs/refactoring_log.md`
+
+Summary:
+
+- Added `SiegeLadder.LadderState` with named states for carried, deploying, deployed, occupied, destroyed, and released.
+- Routed deployed ladder debug through `ladder_state()` / `ladder_state_name()` so F3 snapshots can show whether a ladder is deployed or occupied.
+- Updated climb reservation/release/pruning to refresh deployed vs occupied state without changing queue capacity behavior.
+- Added `ladder_state` to ladder-orc crew debug so carried/deploying/deployed state is visible before the physical ladder node exists.
+- Marked P1-004 complete. P1-005 cleanup hardening is next because stale refs/reservations are now easier to observe.
+
+Validation:
+
+- `make test-target TEST=res://test/enemy_test.gd` passed: 12 test cases, 0 failures.
+
+Behavior changes:
+
+- None intended for movement or queueing. This is a state/diagnostic layer first.
+
+Remaining risk:
+
+- Cleanup paths can still leave stale reservations after carrier death or ladder destruction; P1-005 should make those releases explicit.
+- Full `make test` remains blocked by the previously recorded `siege_smoke_test.gd` hang/crash behavior.

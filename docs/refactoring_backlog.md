@@ -234,11 +234,11 @@ Observed warnings and issues:
 - Problem: Ladder flow crosses carriers, deployed ladder, queue, climb, top landing, and cleanup without one authoritative state.
 - Affected files: `scripts/enemy/ladder_orc_enemy.gd`, `scripts/enemy/siege_ladder.gd`, `scripts/enemy/ladder_assault_brain.gd`, `scripts/enemy/siege_director.gd`.
 - Expected result: Ladders expose states such as `CARRIED`, `DEPLOYING`, `DEPLOYED`, `OCCUPIED`, `DESTROYED`, `RELEASED`.
-- Implementation notes: Add state and diagnostics first, then migrate queue/ownership checks.
+- Implementation notes: Added `SiegeLadder.LadderState` with `carried`, `deploying`, `deployed`, `occupied`, `destroyed`, and `released` names. Deployed ladder debug now reports `state`/`state_id`, and ladder-carrier crew debug reports `ladder_state` before the deployed node exists.
 - Dependencies: P0-002, P0-003.
 - Risk: high.
 - Test strategy: ladder carrier death/deploy/climb tests.
-- Status: TODO.
+- Status: DONE.
 
 ### P1-005 — Harden Ladder Cleanup
 
@@ -440,6 +440,6 @@ Observed warnings and issues:
 
 ## First Selected Task
 
-Next implementation task: P1-004 — Formalize Ladder State Machine.
+Next implementation task: P1-005 — Harden Ladder Cleanup.
 
-Reason: Projectile and raycast hotpaths now have safer lifecycle/measurement coverage; ladder state is the next source of visible AI stalls from the screenshots.
+Reason: Ladder state is now visible; cleanup is the next likely cause of stale reservations and units standing around ladders.

@@ -130,6 +130,7 @@ func test_ladder_debug_status_reports_unit_reservations() -> void:
 	assert_bool(ladder.call("reserve_entry", e)).is_true()
 	var status: Dictionary = ladder.call("debug_unit_status", e)
 	assert_bool(status["deployed"]).is_true()
+	assert_str(status["state"]).is_equal("deployed")
 	assert_bool(status["unit_entry_reserved"]).is_true()
 	assert_bool(status["unit_climbing"]).is_false()
 	assert_int(status["entry_reservations"]).is_equal(1)
@@ -137,9 +138,13 @@ func test_ladder_debug_status_reports_unit_reservations() -> void:
 	assert_bool(ladder.call("reserve_climb", e)).is_true()
 	e.set("_climbing_ladder", true)
 	status = ladder.call("debug_unit_status", e)
+	assert_str(status["state"]).is_equal("occupied")
 	assert_bool(status["unit_climbing"]).is_true()
 	assert_bool(status["unit_entry_reserved"]).is_false()
 	assert_int(status["active_climbers"]).is_equal(1)
+	ladder.call("release_climb", e)
+	status = ladder.call("debug_unit_status", e)
+	assert_str(status["state"]).is_equal("deployed")
 
 func test_ladder_orc_ai_debug_snapshot_reports_crew_state() -> void:
 	var e: CharacterBody3D = auto_free(LadderOrc.instantiate())
@@ -152,6 +157,7 @@ func test_ladder_orc_ai_debug_snapshot_reports_crew_state() -> void:
 	assert_bool((snapshot["crew"] as Dictionary).has("id")).is_true()
 	assert_int(snapshot["crew"]["id"]).is_equal(11)
 	assert_bool(snapshot["crew"]["carrying"]).is_true()
+	assert_str(snapshot["crew"]["ladder_state"]).is_equal("carried")
 
 func test_enemy_avoidance_changes_direction_near_unit() -> void:
 	var a := _spawn()

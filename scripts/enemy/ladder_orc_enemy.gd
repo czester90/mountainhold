@@ -542,6 +542,7 @@ func ai_debug_snapshot() -> Dictionary:
 		"deploy_progress": _deploy_t,
 		"deploy_required": _deploy_duration_required() if _crew_id != 0 else 0.0,
 		"ladder_prop": _debug_node_name(_ladder_prop),
+		"ladder_state": _crew_ladder_state_name(),
 	}
 	if _deploying_ladder:
 		_set_ai_state(EnemyAIState.LADDER_DEPLOYING)
@@ -556,3 +557,16 @@ func ai_debug_snapshot() -> Dictionary:
 		snapshot["state"] = ai_state_name()
 		snapshot["state_id"] = ai_state()
 	return snapshot
+
+func _crew_ladder_state_name() -> String:
+	if _ladder_prop != null and is_instance_valid(_ladder_prop) and _ladder_prop.has_method("ladder_state_name"):
+		return _ladder_prop.call("ladder_state_name")
+	if _deploying_ladder:
+		return "deploying"
+	if _ladder_deployed:
+		return "deployed"
+	if _carrying_ladder:
+		return "carried"
+	if _helping_crew_id != 0:
+		return "helping"
+	return "released"
